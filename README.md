@@ -1,7 +1,111 @@
-Stock Data & Trading Strategy APIA high-performance RESTful API built with FastAPI and PostgreSQL that manages stock market data and implements a Moving Average Crossover trading strategy. The project is fully containerized using Docker and leverages Prisma ORM for type-safe database interactions.🚀 FeaturesStock Data CRUD: Efficiently store and retrieve OHLCV (Open, High, Low, Close, Volume) data.Algorithmic Strategy: Implements a Moving Average Crossover strategy (Short Window: 10, Long Window: 50) to generate Buy/Sell/Hold signals.Robust Validation: Uses Pydantic to enforce data integrity (e.g., ensuring High >= Low and preventing negative prices).Financial Precision: configured with enable_experimental_decimal = true in Prisma to handle currency values with exact precision, avoiding floating-point errors.Containerized Environment: One-command setup using Docker Compose.🛠️ Tech StackBackend: Python 3.10, FastAPIDatabase: PostgreSQL 15ORM: Prisma Client PythonData Analysis: Pandas (for strategy calculation)Testing: Unittest, PytestInfrastructure: Docker, Docker Compose⚙️ Installation & SetupPrerequisitesDocker Desktop installed and running.1. Start the ApplicationClone the repository and run the following command to build the image and start the services (App + Database).docker-compose up --build
-Wait until you see the log: Application startup complete.API URL: http://localhost:8500API Documentation: http://localhost:8500/docsDatabase Host/Port: localhost:54352. Seeding DataTo populate the database with the provided Google Sheet data:Export your Google Sheet as data.csv and place it in the project root.Open a shell inside the running container:docker-compose exec web sh
-Run the seed script:python seed_data.py
-📡 API EndpointsMethodEndpointDescriptionGET/dataFetch all historical stock records.POST/dataAdd a new stock record (validates input).GET/strategy/performanceCalculate and return strategy metrics (Buy/Sell signals).Example Strategy Response{
+
+
+# Stock Data & Trading Strategy API
+
+A high-performance RESTful API built with FastAPI and PostgreSQL to manage stock market OHLCV data and run a Moving Average Crossover trading strategy. The project is fully containerized using Docker and uses Prisma ORM for type-safe and precise financial database operations.
+
+---
+
+## Features
+
+- Stock Data CRUD  
+  Efficient storage and retrieval of OHLCV (Open, High, Low, Close, Volume) data.
+
+- Algorithmic Trading Strategy  
+  Implements a Moving Average Crossover logic:
+  - Short-term SMA: 10 days
+  - Long-term SMA: 50 days
+  - Generates Buy/Sell/Hold signals
+
+- Robust Validation  
+  Powered by Pydantic to ensure:
+  - High ≥ Low  
+  - No negative values  
+  - Valid timestamps  
+
+- Accurate Financial Precision  
+  Prisma configured with:
+
+
+enable_experimental_decimal = true
+
+
+to avoid floating-point precision errors.
+
+- Containerized Environment  
+Fully Dockerized — run everything with one command.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Backend | FastAPI (Python 3.10) |
+| Database | PostgreSQL 15 |
+| ORM | Prisma Client Python |
+| Data Processing | Pandas |
+| Testing | Unittest, Pytest |
+| Infrastructure | Docker + Docker Compose |
+
+---
+
+## Installation & Setup
+
+### Prerequisites
+- Docker Desktop installed and running.
+
+---
+
+### 1. Start the Application
+
+```sh
+docker-compose up --build
+````
+
+Once you see:
+
+```
+Application startup complete.
+```
+
+Your services are ready.
+
+| Service      | URL                                                      |
+| ------------ | -------------------------------------------------------- |
+| API Base URL | [http://localhost:8500](http://localhost:8500)           |
+| Swagger Docs | [http://localhost:8500/docs](http://localhost:8500/docs) |
+| Database     | localhost:5435                                           |
+
+---
+
+### 2. Seed Database with Sample Data
+
+Export your Google Sheet as `data.csv` and place it in the project root.
+
+Run:
+
+```sh
+docker-compose exec web sh
+python seed_data.py
+```
+
+---
+
+## API Endpoints
+
+| Method | Endpoint                | Description                               |
+| ------ | ----------------------- | ----------------------------------------- |
+| GET    | `/data`                 | Fetch all stored stock records            |
+| POST   | `/data`                 | Insert a new OHLCV record                 |
+| GET    | `/strategy/performance` | Run the moving average crossover strategy |
+
+---
+
+### Example Strategy Response
+
+```json
+{
   "strategy": "Moving Average Crossover (10/50)",
   "total_records": 100,
   "buy_signals_count": 5,
@@ -11,22 +115,42 @@ Run the seed script:python seed_data.py
   "sma_short_last": 151.20,
   "sma_long_last": 148.50
 }
-🧪 Running TestsThis project includes unit tests for input validation and strategy logic, ensuring >80% code coverage.To run the tests, execute the following command inside the Docker container:# 1. Enter the container
-docker-compose exec web sh
+```
 
-# 2. Run tests
+---
+
+## Running Tests
+
+Inside the running container:
+
+```sh
+docker-compose exec web sh
 python -m unittest tests/test_app.py
-What is tested?Validation: Rejection of negative volumes, invalid dates, and Low > High prices.Strategy: Correct calculation of Simple Moving Averages (SMA) and crossover detection using mock data.API: Availability of endpoints.📂 Project Structurestock-app/
+```
+
+### What’s Tested?
+
+* Input validation (negative values, Low > High, invalid dates)
+* SMA strategy logic using mock historical data
+* API endpoint response and behavior
+
+---
+
+## Project Structure
+
+```
+stock-app/
 ├── app/
 │   ├── main.py          # FastAPI application & endpoints
-│   ├── models.py        # Pydantic data validation models
-│   └── strategy.py      # Moving Average logic (Pandas)
+│   ├── models.py        # Pydantic validation models
+│   └── strategy.py      # Trading logic using Pandas
 ├── prisma/
-│   └── schema.prisma    # Database schema definition
+│   └── schema.prisma    # Prisma DB schema
 ├── tests/
 │   └── test_app.py      # Unit tests
-├── Dockerfile           # Python image configuration
-├── docker-compose.yml   # Service orchestration (Web + DB)
+├── Dockerfile           # Image build instructions
+├── docker-compose.yml   # Application + database orchestration
 ├── requirements.txt     # Python dependencies
-└── seed_data.py         # Script to import CSV data
-🐛 Troubleshooting"Prisma Client has not been generated": This usually happens if you try to run python scripts locally on Windows instead of inside Docker. Always run scripts inside the container using docker-compose exec web ....Connection Refused: Ensure you are using the correct ports.Inside Docker: App is on 8000, DB is on 5432.Outside Docker: App is on 8500, DB is on 5435.
+└── seed_data.py         # CSV import script
+```
+
