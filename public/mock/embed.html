@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mock Grafana panel</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #111217; color: #ccccdc; font: 12px/1.4 Inter, system-ui, sans-serif; }
+  .wrap { height: 100%; display: flex; flex-direction: column; padding: 10px 14px; box-sizing: border-box; }
+  h1 { font-size: 13px; font-weight: 500; margin: 0 0 6px; } small { color: #6e7380; }
+  svg { flex: 1; width: 100%; min-height: 0; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; flex: 1; }
+  .cell { background: #181b1f; border: 1px solid #2a2d33; border-radius: 4px; padding: 8px; display: flex; flex-direction: column; min-height: 0; }
+  .tag { position: absolute; right: 8px; bottom: 6px; color: #6e7380; font-size: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap" id="root"></div>
+<span class="tag">mock grafana embed</span>
+<script>
+  var p = new URLSearchParams(location.search);
+  var title = p.get('title') || 'Panel', full = p.get('full') === '1', seed = +(p.get('seed') || 0);
+  function line(s, color) {
+    var pts = [], n = 80;
+    for (var i = 0; i < n; i++) pts.push(50 + Math.sin(i / 7 + s) * 22 + Math.sin(i / 2.3 + s * 3) * 6);
+    var d = pts.map(function (y, i) { return (i ? 'L' : 'M') + (i / (n - 1) * 100) + ',' + (100 - y); }).join('');
+    return '<svg viewBox="0 0 100 100" preserveAspectRatio="none"><path d="' + d + 'L100,100L0,100Z" fill="' + color + '" fill-opacity=".15"/><path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg>';
+  }
+  var colors = ['#73bf69', '#5794f2', '#ff9830', '#b877d9'];
+  var root = document.getElementById('root');
+  if (full) {
+    var names = ['CPU Busy', 'Memory Used', 'Network Traffic', 'Disk I/O'], h = '<h1>' + title + ' <small>· mock dashboard</small></h1><div class="grid">';
+    names.forEach(function (n, i) { h += '<div class="cell"><h1>' + n + '</h1>' + line(i * 2, colors[i]) + '</div>'; });
+    root.innerHTML = h + '</div>';
+  } else {
+    root.innerHTML = '<h1>' + title + '</h1>' + line(seed * 1.7, colors[seed % 4]);
+  }
+</script>
+</body>
+</html>
