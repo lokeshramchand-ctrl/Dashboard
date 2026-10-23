@@ -1,0 +1,4 @@
+{
+  "kumaStatusUrl": "mock/embed.html?title=Uptime%20Kuma%20status%20page&full=1",
+  "grafanaUrl": "https://grafana.home.lan"
+}

@@ -1,0 +1,51 @@
+# CLAUDE.md
+
+Homelab dashboard: a React UI plus a Fastify backend that controls Proxmox guests and shows nginx, Grafana and Uptime Kuma data. Single user. All auth state lives in MongoDB.
+
+## Layout
+
+```
+/                  React + Vite + TS UI  (npm run dev | build | build:prod)
+  src/api.ts       the only place the UI calls the backend (/api/..., relative URLs)
+  src/mock.ts      in-browser mock of the whole API (fetch + EventSource patch)
+  src/pages/       Overview, Guests, Nginx, Grafana, Kuma, Login
+  public/config.json   runtime config (kumaStatusUrl, grafanaUrl), edit without rebuilding
+server/            Fastify backend (TypeScript, compiled on the dev PC)
+  src/auth.ts      login/logout/me, session hook, origin check, rate limit
+  src/db.ts        Mongo connection, indexes, typed collections
+  src/guests.ts    guest list/actions, task status, SSE /api/events
+  src/{nginx,grafana,kuma,overview}.ts
+  src/create-user.ts   CLI to create a user or reset a password
+API_NOTES.md       units/format contract between UI and backend
+```
+
+## Commands
+
+- UI: `npm install`, `npm run dev`, `npm run build` (mock API ON, standalone demo, password `demo`), `npm run build:prod` (mock OFF, real backend)
+- Backend: `cd server && npm install && npm run build`; `npm run create-user -- <name>`; `npm start` (needs `server/.env`, copy from `.env.example`)
+- Node >= 20.6 (uses `--env-file`). Ship `server/` as `build/` + `node_modules` + `package.json`; no build tools on the server.
+
+## Rules that must not break
+
+- **Auth state is in MongoDB only**: collections `users` (scrypt hash), `sessions` (sha256 of the cookie token, TTL on `expiresAt`), `login_attempts` (TTL), `audit`, `kuma_samples` (TTL 31 d). Never store tokens or passwords in plaintext, never log the cookie.
+- Every `/api/*` route except `/api/auth/login` requires a session (hook in `auth.ts`). New routes are protected automatically; keep them under `/api/`.
+- State-changing requests are refused if `Origin` host differs from `Host` / `X-Forwarded-Host`. Cookie is `httpOnly`, `SameSite=Strict`, `Secure` in prod.
+- Guest actions: vmid must be in `ALLOWED_VMIDS` (if set), `PROTECTED_VMIDS` are refused for every action, and every attempt (accepted, refused or error) is written to `audit`. Task ids are regex-validated before use in a Proxmox URL.
+- Errors are always `{error, code}` with a real HTTP status. Missing integration config returns `503 NOT_CONFIGURED`, except `/api/overview`, which degrades to zeros.
+- Grafana and Proxmox tokens are read-only/minimal; the backend never writes to nginx.
+- UI uses root-relative `/api/...` and `base: './'` assets. No hardcoded hosts. Every data panel needs loading, error and empty states.
+
+## Contract notes
+
+Units and behaviour are in `API_NOTES.md` (cpu is a 0..1 fraction, memory in bytes, uptime in seconds, uptimeNd in percent). Change that file whenever a field changes. The gaming VM is vmid 100 in the UI (`GAMING_VMID` in `src/pages/Guests.tsx`).
+
+## Design
+
+White, neutral, airy CRM style (Inter, bundled). Colours are CSS variables at the end of the "refined neutral theme" block in `src/styles.css`; charts use blue `#0a95e8`, green `#12b076`, orange `#f07a1a`. Icons are inline SVG paths in `src/components/ui.tsx` (no icon library).
+
+## Gotchas
+
+- Kuma `/metrics` has no monitor ids, uptime history or messages. The backend scrapes every `KUMA_POLL_MS`, stores samples in Mongo, and derives uptime, heartbeats and incident `since` from them (so uptime figures build up over time after first start).
+- Proxmox with a self-signed cert needs `PVE_INSECURE_TLS=true`.
+- Bash heredocs with certain quoting failed in this environment; prefer the Write tool for files.
+- `dist/` and `server/build/` are git-ignored build output.
