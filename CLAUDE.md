@@ -8,12 +8,15 @@ SPL Console (homelab dashboard): a React UI plus a Fastify backend that controls
 /                  React + Vite + TS UI  (npm run dev | build | build:prod)
   src/api.ts       the only place the UI calls the backend (/api/..., relative URLs)
   src/mock.ts      in-browser mock of the whole API (fetch + EventSource patch)
-  src/pages/       Overview, Guests, Nginx, Grafana, Kuma, Login
+  src/pages/       Overview, Guests, GuestDetail (+ guest/ tabs: Options, Snapshots, Backups, Tasks), Nginx, Grafana, Kuma, Login
+  src/components/Terminal.tsx   xterm.js shell (lazy-loaded) over the shell WebSocket
   public/config.json   runtime config (kumaStatusUrl, grafanaUrl), edit without rebuilding
 server/            Fastify backend (TypeScript, compiled on the dev PC)
   src/auth.ts      login/logout/me, session hook, origin check, rate limit
   src/db.ts        Mongo connection, indexes, typed collections
   src/guests.ts    guest list/actions, task status, SSE /api/events
+  src/guest-detail.ts  per-guest config, rrd, tasks, snapshots, backups; `audited()` wraps every write
+  src/shell.ts     WebSocket shell via Proxmox termproxy (SHELL_ENABLED)
   src/{nginx,grafana,kuma,overview}.ts
   src/create-user.ts   CLI to create a user or reset a password
 API_NOTES.md       units/format contract between UI and backend
@@ -37,12 +40,14 @@ docker-compose.yml app + MongoDB; Dockerfile builds UI + backend into one image
 - State-changing requests are refused if `Origin` host differs from `Host` / `X-Forwarded-Host`. Cookie is `httpOnly`, `SameSite=Strict`, `Secure` in prod.
 - Guest actions: vmid must be in `ALLOWED_VMIDS` (if set), `PROTECTED_VMIDS` are refused for every action, and every attempt (accepted, refused or error) is written to `audit`. Task ids are regex-validated before use in a Proxmox URL.
 - Errors are always `{error, code}` with a real HTTP status. Missing integration config returns `503 NOT_CONFIGURED`, except `/api/overview`, which degrades to zeros.
-- Grafana and Proxmox tokens are read-only/minimal; the backend never writes to nginx.
+- The Grafana token is read-only. The Proxmox token has only the privileges listed in `.env.example`; give it fewer to switch features off. The backend never writes to nginx.
+- **Guest writes** (config, snapshots, rollback, backups, shell) go through `audited()` in `guest-detail.ts`: protected guests refused, `ALLOWED_VMIDS` honoured, every attempt in `audit`. Config edits are limited to the whitelist in `editable()`; snapshot names, storage names and task ids are regex-validated before they reach a Proxmox URL.
+- **Shell** is off unless `SHELL_ENABLED=true`. The WebSocket route checks `Origin` itself (the GET hook skips it), needs a running non-protected guest, caps sessions and idle time, and audits open/close. Never log the termproxy ticket.
 - UI uses root-relative `/api/...` and `base: './'` assets. No hardcoded hosts. Every data panel needs loading, error and empty states.
 
 ## Contract notes
 
-Units and behaviour are in `API_NOTES.md` (cpu is a 0..1 fraction, memory in bytes, uptime in seconds, uptimeNd in percent). Change that file whenever a field changes. The gaming VM is vmid 100 in the UI (`GAMING_VMID` in `src/pages/Guests.tsx`).
+Units and behaviour (including the guest detail routes and the shell frame protocol) are in `API_NOTES.md` (cpu is a 0..1 fraction, memory in bytes, uptime in seconds, uptimeNd in percent). Change that file whenever a field changes. The gaming VM is vmid 100 in the UI (`GAMING_VMID` in `src/pages/Guests.tsx`).
 
 ## Design
 
@@ -53,4 +58,5 @@ Same design system as the company site (`C:\Code\spl-homepage`, splsystems.com):
 - Kuma `/metrics` has no monitor ids, uptime history or messages. The backend scrapes every `KUMA_POLL_MS`, stores samples in Mongo, and derives uptime, heartbeats and incident `since` from them (so uptime figures build up over time after first start).
 - Proxmox with a self-signed cert needs `PVE_INSECURE_TLS=true`.
 - Bash heredocs with certain quoting failed in this environment; prefer the Write tool for files.
+- The shell route goes through nginx, so the proxy must forward `Upgrade`/`Connection` headers. Proxmox termproxy with an API token has not been verified against a real node.
 - `dist/` and `server/build/` are git-ignored build output.
