@@ -4,9 +4,9 @@ import { useQuery } from '../hooks';
 import { Async } from './ui';
 
 type Pt = [number, number];
-interface Series { name: string; points: Pt[] }
+export interface Series { name: string; points: Pt[] }
 
-function LineChart({ series, unit, height = 220 }: { series: Series[]; unit: string; height?: number }) {
+export function LineChart({ series, unit, height = 220, fmtValue }: { series: Series[]; unit: string; height?: number; fmtValue?: (v: number) => string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(600);
   const [hover, setHover] = useState<number | null>(null);
@@ -28,7 +28,9 @@ function LineChart({ series, unit, height = 220 }: { series: Series[]; unit: str
   }, [rawMax]);
   const X = (t: number) => m.l + ((t - x0) / Math.max(1, x1 - x0)) * (w - m.l - m.r);
   const Y = (v: number) => m.t + (1 - v / niceMax) * (height - m.t - m.b);
-  const fmt = (v: number) => (unit === '%' ? `${v.toFixed(v < 10 ? 1 : 0)}%` : v >= 1e9 ? `${(v / 1e9).toFixed(1)}G` : v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(1)}k` : v.toFixed(1));
+  const multiDay = x1 - x0 > 86400 * 1.5;
+  const fmtT = (t: number) => new Date(t * 1000).toLocaleString([], multiDay ? { month: 'short', day: 'numeric' } : { hour: '2-digit', minute: '2-digit' });
+  const fmt = fmtValue ?? ((v: number) => (unit === '%' ? `${v.toFixed(v < 10 ? 1 : 0)}%` : v >= 1e9 ? `${(v / 1e9).toFixed(1)}G` : v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(1)}k` : v.toFixed(1)));
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * niceMax);
   const xt = [0, 0.25, 0.5, 0.75, 1].map((f) => x0 + f * (x1 - x0));
   const colors = ['var(--blue)', 'var(--green)', 'var(--peri)', 'var(--red)'];
@@ -57,7 +59,7 @@ function LineChart({ series, unit, height = 220 }: { series: Series[]; unit: str
         ))}
         {xt.map((t, i) => (
           <text key={i} x={X(t)} y={height - 6} textAnchor={i === 0 ? 'start' : i === 4 ? 'end' : 'middle'} className="axis">
-            {new Date(t * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {fmtT(t)}
           </text>
         ))}
         {series.map((s, i) => {
@@ -79,9 +81,9 @@ function LineChart({ series, unit, height = 220 }: { series: Series[]; unit: str
       </svg>
       {idx != null && (
         <div className="tip" style={{ left: Math.min(w - 150, Math.max(0, X(base[idx][0]) + 12)) }}>
-          <b>{new Date(base[idx][0] * 1000).toLocaleTimeString()}</b>
+          <b>{new Date(base[idx][0] * 1000).toLocaleString()}</b>
           {series.map((s, i) => (
-            <span key={s.name}><i style={{ background: colors[i % 4] }} />{s.name}: {fmt(s.points[idx][1])}{unit === '%' ? '' : ` ${unit}`}</span>
+            <span key={s.name}><i style={{ background: colors[i % 4] }} />{s.name}: {fmt(s.points[idx][1])}{unit === '%' || fmtValue ? '' : ` ${unit}`}</span>
           ))}
         </div>
       )}
