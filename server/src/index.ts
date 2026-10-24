@@ -7,10 +7,12 @@ import { cfg } from './config.js';
 import { closeDb, connectDb } from './db.js';
 import { HttpError } from './errors.js';
 import { registerGrafana } from './grafana.js';
+import { registerGuestDetail } from './guest-detail.js';
 import { registerGuests } from './guests.js';
 import { registerKuma, startKuma } from './kuma.js';
 import { registerNginx } from './nginx.js';
 import { registerOverview } from './overview.js';
+import { registerShell } from './shell.js';
 
 const app = Fastify({
   trustProxy: cfg.trustProxy,
@@ -41,6 +43,8 @@ await app.register(cookie);
 registerAuth(app);
 registerOverview(app);
 registerGuests(app);
+registerGuestDetail(app);
+await registerShell(app);
 registerNginx(app);
 registerGrafana(app);
 registerKuma(app);
