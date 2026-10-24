@@ -7,7 +7,7 @@ export interface SessionDoc { _id: ObjectId; tokenHash: string; userId: ObjectId
 export interface AttemptDoc { _id: string; count: number; expireAt: Date }
 export interface AuditDoc {
   ts: Date; user: string; ip: string; vmid: number; name?: string; action: string;
-  result: 'accepted' | 'refused' | 'error'; taskId?: string; reason?: string;
+  result: 'accepted' | 'refused' | 'error'; taskId?: string; reason?: string; detail?: string;
 }
 export interface SampleDoc {
   monitorKey: string; name: string; url: string; type: string;
