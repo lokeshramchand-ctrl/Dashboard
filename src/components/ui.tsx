@@ -174,6 +174,33 @@ export function Meter({ value, tone }: { value: number; tone?: Tone }) {
   return <div className="meter"><i className={`m-${t}`} style={{ width: `${v * 100}%` }} /></div>;
 }
 
+/** Press-and-hold (pointer or Space/Enter) to confirm; releasing early cancels. */
+export function HoldButton({ children, onConfirm, danger, ms = 700 }: { children: ReactNode; onConfirm: () => void; danger?: boolean; ms?: number }) {
+  const [holding, setHolding] = useState(false);
+  const timer = useRef<number>();
+  const start = () => {
+    if (timer.current) return;
+    setHolding(true);
+    timer.current = window.setTimeout(() => { timer.current = undefined; setHolding(false); onConfirm(); }, ms);
+  };
+  const cancel = () => {
+    window.clearTimeout(timer.current);
+    timer.current = undefined;
+    setHolding(false);
+  };
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  return (
+    <button type="button" className={`btn hold ${danger ? 'btn-danger' : 'btn-primary'} ${holding ? 'holding' : ''}`}
+      style={{ ['--hold-ms' as string]: `${ms}ms` }} autoFocus
+      onPointerDown={start} onPointerUp={cancel} onPointerLeave={cancel} onPointerCancel={cancel}
+      onKeyDown={(e) => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); start(); } }}
+      onKeyUp={(e) => { if (e.key === ' ' || e.key === 'Enter') cancel(); }} onBlur={cancel}>
+      <span className="hold-fill" aria-hidden="true" />
+      <span className="hold-label">{holding ? 'Keep holding…' : <>{children}<small> · hold</small></>}</span>
+    </button>
+  );
+}
+
 export function Modal({ title, children, onClose, footer }: { title: string; children: ReactNode; onClose: () => void; footer: ReactNode }) {
   useEffect(() => {
     const f = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
