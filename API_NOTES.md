@@ -39,12 +39,34 @@ The UI implements the contract as given. Everything below is either a **clarific
    `kumaStatusUrl` enables the "Status page" button and embed on the Uptime page. Edit it on the server without rebuilding. If you would rather have it from the API, add `GET /kuma/status-page -> {url}` and I'll switch the UI to it.
 2. Build flag: `npm run build` ships with the **mock API enabled** (standalone demo, login password `demo`). `npm run build:prod` sets `VITE_MOCK=false` and talks to the real `/api`.
 
+## Guest management (detail page)
+
+All routes need a session. Write routes refuse protected guests (`403 PROTECTED`), guests outside `ALLOWED_VMIDS` (`404`) and write an `audit` document (`action`, `detail`) for every attempt. Long-running calls return `{taskId}`; the UI waits with `GET /tasks/:id` exactly like power actions.
+
+| Route | Notes |
+|---|---|
+| `GET /guests/:vmid/config` | `{config, pending}`. `config` is the raw Proxmox config (keys containing pass, secret, key or token are masked); `pending` lists keys applied at the next restart |
+| `PUT /guests/:vmid/config` | JSON patch of whitelisted keys only: `hostname` (lxc) / `name` (qemu), `description`, `tags` (string[]), `onboot` (bool), `startup`, `cores`, `sockets` (qemu), `memory` (MiB), `swap` (lxc, MiB), `balloon` (qemu, MiB), `cpulimit`. Any other key is `400`. Returns `{ok:true}` |
+| `GET /guests/:vmid/rrd?timeframe=` | `hour`, `day`, `week`, `month` or `year`. `[{time, cpu, mem, maxmem, netin, netout, diskread, diskwrite}]`: `time` unix **seconds**, `cpu` **fraction 0..1**, `mem`/`maxmem` **bytes**, `net*`/`disk*` **bytes per second**; any value may be `null` |
+| `GET /guests/:vmid/tasks` | last 50 tasks for the guest: `{upid, type, user, start, end or null, status: running/ok/error, message}` (`start`/`end` unix seconds) |
+| `GET /tasks/:taskId/log` | `{lines: string[]}` (first 500 lines) |
+| `GET /guests/:vmid/snapshots` | `[{name, description, time (unix s) or null, vmstate, parent or null}]` (the `current` pseudo entry is dropped) |
+| `POST /guests/:vmid/snapshots` | `{name, description?, vmstate?}` -> `{taskId}`. `name` matches `^[A-Za-z][A-Za-z0-9_-]{1,39}$` |
+| `POST /guests/:vmid/snapshots/:name/rollback`, `DELETE /guests/:vmid/snapshots/:name` | -> `{taskId}` |
+| `GET /guests/:vmid/backups` | `{storages, defaultStorage, items:[{volid, storage, size (bytes), time (unix s), format, notes}]}` from storages that allow backups |
+| `POST /guests/:vmid/backups` | `{storage, mode: snapshot/suspend/stop, notes?}` -> `{taskId}` (vzdump, zstd). Restore and delete are not offered |
+| `GET /guests/:vmid/shell` (WebSocket) | needs `SHELL_ENABLED=true`, a running non-protected guest and a same-origin `Origin` header. Client sends JSON text frames `{t:"i",d:string}` (input) and `{t:"r",cols,rows}` (resize). Server sends binary frames (terminal output) and JSON text frames `{t:"ready"}`, `{t:"exit"}`, `{t:"error",message}`. 30 minutes idle closes it; at most 4 shells at once. Open and close are audited as `shell` / `shell-close` |
+
+The shell is a root shell inside an LXC container, or the serial console of a QEMU VM (needs `serial0: socket` and a getty on it; graphical guests such as Windows are not reachable). The reverse proxy in front of the app must pass WebSocket upgrades (`proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection "upgrade";`).
+
+Not implemented (use Proxmox): network and disk editing, backup restore/delete, migration, clone, firewall, node-level shell. The mobile app does not use these routes yet.
+
 ## Backend storage — MongoDB (implemented in `server/`)
 
 - `users` — username + scrypt password hash (created with `npm run create-user`)
 - `sessions` — sha256 of the session token, TTL index on `expiresAt`
 - `login_attempts` — 5 failures per ip+username per 15 min, then `429 RATE_LIMITED`
-- `audit` — one document per guest action `{ts, user, ip, vmid, name, action, result, taskId, reason}`
+- `audit` — one document per guest action `{ts, user, ip, vmid, name, action, result, taskId, reason, detail}`; `action` is `start`, `shutdown`, `stop`, `reboot`, `config`, `snapshot`, `rollback`, `snapshot-delete`, `backup`, `shell` or `shell-close`
 - `kuma_samples` — scraped Kuma status/ping per monitor (31-day TTL); source of uptime %, heartbeats and incident `since`
 
 Backend deviations from the contract: Kuma `incidents[].message` is generic (`Monitor is down`) because `/metrics` carries no message; monitor `id` is a stable hash of name+type+url.
@@ -57,4 +79,4 @@ Backend deviations from the contract: Kuma `incidents[].message` is generic (`Mo
 
 ## Mock data included
 
-LXC guests (101–107, 109, 120), the Windows QEMU gaming VM (vmid 100, conflicts with 101/106), protected guest 120 (dashboard), an SSL nginx site (several), a non-SSL site, a **down** Kuma monitor (Legacy Wiki), pending and maintenance monitors, and a **failed task** (starting vmid 109 fails with `storage 'local-zfs' is not available`).
+LXC guests (101–107, 109, 120), the Windows QEMU gaming VM (vmid 100, conflicts with 101/106), protected guest 120 (dashboard), a simulated shell for running guests (VM 108 has a serial port, the gaming VM does not), a snapshot on guest 101, sample backups for 101/103/104, an SSL nginx site (several), a non-SSL site, a **down** Kuma monitor (Legacy Wiki), pending and maintenance monitors, and a **failed task** (starting vmid 109 fails with `storage 'local-zfs' is not available`).
