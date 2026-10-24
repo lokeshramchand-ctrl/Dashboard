@@ -1,6 +1,6 @@
 import type {
-  AppConfig, Guest, GuestAction, GrafanaDashboard, GrafanaPanel, KumaIncident, KumaMonitor,
-  NginxSite, Overview, PromResult, Task,
+  AppConfig, BackupList, Guest, GuestAction, GuestConfig, GuestConfigPatch, GrafanaDashboard, GrafanaPanel, KumaIncident, KumaMonitor,
+  NginxSite, Overview, PromResult, RrdPoint, Snapshot, Task, TaskRow, Timeframe,
 } from './types';
 
 export class ApiError extends Error {
@@ -41,6 +41,8 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
 
 const get = <T,>(p: string) => req<T>('GET', p);
 const post = <T,>(p: string, b?: unknown) => req<T>('POST', p, b ?? {});
+const put = <T,>(p: string, b: unknown) => req<T>('PUT', p, b);
+const del = <T,>(p: string) => req<T>('DELETE', p);
 
 export const api = {
   login: (username: string, password: string) => post<unknown>('/auth/login', { username, password }),
@@ -49,6 +51,17 @@ export const api = {
   overview: () => get<Overview>('/overview'),
   guests: () => get<Guest[]>('/guests'),
   guestAction: (vmid: number, action: GuestAction) => post<{ taskId: string }>(`/guests/${vmid}/${action}`),
+  guestConfig: (vmid: number) => get<GuestConfig>(`/guests/${vmid}/config`),
+  setGuestConfig: (vmid: number, patch: GuestConfigPatch) => put<{ ok: true }>(`/guests/${vmid}/config`, patch),
+  guestRrd: (vmid: number, tf: Timeframe) => get<RrdPoint[]>(`/guests/${vmid}/rrd?timeframe=${tf}`),
+  guestTasks: (vmid: number) => get<TaskRow[]>(`/guests/${vmid}/tasks`),
+  taskLog: (id: string) => get<{ lines: string[] }>(`/tasks/${encodeURIComponent(id)}/log`),
+  snapshots: (vmid: number) => get<Snapshot[]>(`/guests/${vmid}/snapshots`),
+  createSnapshot: (vmid: number, b: { name: string; description?: string; vmstate?: boolean }) => post<{ taskId: string }>(`/guests/${vmid}/snapshots`, b),
+  rollbackSnapshot: (vmid: number, name: string) => post<{ taskId: string }>(`/guests/${vmid}/snapshots/${encodeURIComponent(name)}/rollback`),
+  deleteSnapshot: (vmid: number, name: string) => del<{ taskId: string }>(`/guests/${vmid}/snapshots/${encodeURIComponent(name)}`),
+  backups: (vmid: number) => get<BackupList>(`/guests/${vmid}/backups`),
+  createBackup: (vmid: number, b: { storage: string; mode: string; notes?: string }) => post<{ taskId: string }>(`/guests/${vmid}/backups`, b),
   task: (id: string) => get<Task>(`/tasks/${encodeURIComponent(id)}`),
   nginx: () => get<NginxSite[]>('/nginx/sites'),
   dashboards: () => get<GrafanaDashboard[]>('/grafana/dashboards'),
