@@ -30,7 +30,7 @@ cd mobile && npm ci && npm run typecheck   # mobile typecheck
 
 1. **Auth is MongoDB only.** Never store or log tokens, passwords or the session cookie. Never weaken `Origin` checks, cookie flags, or the session hook in `server/src/auth.ts`.
 2. **All routes live under `/api/`** so the session hook protects them. Only `/api/auth/login` is public.
-3. **Guest actions** must honour `ALLOWED_VMIDS` and `PROTECTED_VMIDS` and write an `audit` document for every attempt.
+3. **Guest actions and writes** (power, config, snapshots, backups, shell) must honour `ALLOWED_VMIDS` and `PROTECTED_VMIDS` and write an `audit` document for every attempt; use `audited()` in `server/src/guest-detail.ts`. The shell stays off unless `SHELL_ENABLED=true`, and its WebSocket route checks `Origin` itself.
 4. **Errors are `{error, code}`** with a real HTTP status. Missing integration config is `503 NOT_CONFIGURED` (except `/api/overview`, which degrades to zeros).
 5. **No hardcoded hosts.** Web uses root-relative `/api/...`; mobile takes the server URL from user settings.
 6. **Contract changes** (field names, units) must update `API_NOTES.md`, `src/types.ts`, `mobile/src/types.ts` and `src/mock.ts` together.
