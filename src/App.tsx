@@ -6,6 +6,7 @@ import type { Command } from './components/CommandPalette';
 import { Icon, Spinner } from './components/ui';
 import type { IconName } from './components/ui';
 import { RefreshCtx, SearchCtx, ToastProvider, useHash, useToast } from './hooks';
+import GuestDetail from './pages/GuestDetail';
 import Guests from './pages/Guests';
 import Grafana from './pages/Grafana';
 import Kuma from './pages/Kuma';
@@ -105,7 +106,7 @@ function Shell({ user, config, onLogout }: { user: string; config: AppConfig; on
       { id: 'act-refresh', label: 'Refresh data', group: 'Actions', icon: 'refresh', run: bump },
       { id: 'act-theme', label: theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme', group: 'Actions', icon: theme === 'dark' ? 'sun' : 'moon', run: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')) },
       { id: 'act-logout', label: 'Sign out', group: 'Actions', icon: 'logout', run: logout },
-      ...guests.map((g) => ({ id: `guest-${g.vmid}`, label: g.name, hint: `${g.type} ${g.vmid} · ${g.status}`, group: 'Guests', icon: 'server' as const, run: go('guests', g.name) })),
+      ...guests.map((g) => ({ id: `guest-${g.vmid}`, label: g.name, hint: `${g.type} ${g.vmid} · ${g.status}`, group: 'Guests', icon: 'server' as const, run: () => { location.hash = `#/guests/${g.vmid}`; } })),
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guests, theme, bump]);
@@ -162,7 +163,7 @@ function Shell({ user, config, onLogout }: { user: string; config: AppConfig; on
 
       <main className="content" key={page}>
         {page === 'overview' && <Overview />}
-        {page === 'guests' && <Guests />}
+        {page === 'guests' && (Number.isInteger(Number(parts[1])) && Number(parts[1]) > 0 ? <GuestDetail key={parts[1]} vmid={Number(parts[1])} tab={parts[2]} /> : <Guests />)}
         {page === 'nginx' && <Nginx />}
         {page === 'grafana' && <Grafana uid={parts[1]} />}
         {page === 'kuma' && <Kuma statusUrl={config.kumaStatusUrl} />}
