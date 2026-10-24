@@ -1,4 +1,4 @@
-# Homelab Dashboard
+# SPL Console
 
 A single-user dashboard for a homelab: start/stop Proxmox guests, see nginx sites, browse Grafana dashboards and watch Uptime Kuma, from the browser or a phone.
 

@@ -4,7 +4,7 @@ Instructions for AI coding agents (Claude Code, Codex, Cursor, Copilot, etc.) wo
 
 ## What this is
 
-Single-user homelab dashboard. Three deployable parts:
+Single-user homelab dashboard (SPL Console). Three deployable parts:
 
 | Path | What | Stack |
 |---|---|---|
@@ -42,7 +42,7 @@ cd mobile && npm ci && npm run typecheck   # mobile typecheck
 - TypeScript strict. No `any` unless parsing untrusted JSON at a boundary.
 - Match surrounding style; keep comments rare and about *why*.
 - Web icons are inline SVG paths in `src/components/ui.tsx`; no icon library.
-- Web colours are CSS variables in `src/styles.css` (last theme block wins). Mobile colours live in `mobile/src/theme.ts` and mirror them.
+- Web follows the SPL Systems site design (see the Design section of `CLAUDE.md`): colours are CSS variables at the top of `src/styles.css`, charts and status use only the four logo colours. Mobile colours live in `mobile/src/theme.ts` and have not been aligned to it yet.
 - Units: cpu is a 0..1 fraction, memory/disk in bytes, uptime in seconds, uptimeNd in percent.
 - Prefer small, focused commits using Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`, `ci:`, `refactor:`).
 - Windows is a supported dev OS. Prefer the file-writing tool over tricky shell heredocs.

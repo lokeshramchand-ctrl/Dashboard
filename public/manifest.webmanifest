@@ -1,6 +1,6 @@
 {
-  "name": "Homelab Console",
-  "short_name": "Homelab",
+  "name": "SPL Console",
+  "short_name": "SPL Console",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
