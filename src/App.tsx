@@ -1,5 +1,7 @@
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, loadConfig } from './api';
+import { CommandPalette } from './components/CommandPalette';
+import type { Command } from './components/CommandPalette';
 import { Icon, Spinner } from './components/ui';
 import type { IconName } from './components/ui';
 import { RefreshCtx, SearchCtx, ToastProvider, useHash, useToast } from './hooks';
@@ -9,7 +11,7 @@ import Kuma from './pages/Kuma';
 import Login from './pages/Login';
 import Nginx from './pages/Nginx';
 import Overview from './pages/Overview';
-import type { AppConfig } from './types';
+import type { AppConfig, Guest } from './types';
 
 const NAV: { id: string; label: string; icon: IconName; group: string }[] = [
   { id: 'overview', label: 'Overview', icon: 'monitor', group: 'Workspace' },
@@ -70,8 +72,34 @@ function Shell({ user, config, onLogout }: { user: string; config: AppConfig; on
 
   const current = NAV.find((n) => n.id === page) ?? NAV[0];
   const [q, setQ] = useState('');
-  useEffect(() => setQ(''), [current.id]);
+  const pendingQ = useRef('');
+  useEffect(() => { setQ(pendingQ.current); pendingQ.current = ''; }, [current.id]);
   const onSearch = (v: string) => { setQ(v); if (current.id === 'overview' && v) location.hash = '#/guests'; };
+
+  const [palette, setPalette] = useState(false);
+  const [guests, setGuests] = useState<Guest[]>([]);
+  useEffect(() => {
+    const f = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette((o) => !o); }
+    };
+    window.addEventListener('keydown', f);
+    return () => window.removeEventListener('keydown', f);
+  }, []);
+  useEffect(() => {
+    if (palette) api.guests().then(setGuests).catch(() => setGuests([]));
+  }, [palette]);
+
+  const commands = useMemo<Command[]>(() => {
+    const go = (id: string, search = '') => () => { pendingQ.current = search; if (location.hash === `#/${id}`) setQ(search); else location.hash = `#/${id}`; };
+    return [
+      ...NAV.map((n) => ({ id: `nav-${n.id}`, label: n.label, group: 'Go to', icon: n.icon, run: go(n.id) })),
+      { id: 'act-refresh', label: 'Refresh data', group: 'Actions', icon: 'refresh', run: bump },
+      { id: 'act-theme', label: theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme', group: 'Actions', icon: theme === 'dark' ? 'sun' : 'moon', run: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')) },
+      { id: 'act-logout', label: 'Sign out', group: 'Actions', icon: 'logout', run: logout },
+      ...guests.map((g) => ({ id: `guest-${g.vmid}`, label: g.name, hint: `${g.type} ${g.vmid} · ${g.status}`, group: 'Guests', icon: 'server' as const, run: go('guests', g.name) })),
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guests, theme, bump]);
 
   return (
     <RefreshCtx.Provider value={{ tick, bump }}>
@@ -106,6 +134,7 @@ function Shell({ user, config, onLogout }: { user: string; config: AppConfig; on
               {q && <button onClick={() => setQ('')} aria-label="Clear search"><Icon name="x" size={14} /></button>}
             </label>
             <div className="top-actions">
+              <button className="btn kbd-btn hide-sm" onClick={() => setPalette(true)} aria-label="Open command palette"><Icon name="search" size={15} />Quick jump<kbd>Ctrl K</kbd></button>
               <button className="btn btn-ghost" onClick={bump} aria-label="Refresh data"><span className={spin ? 'spin' : ''}><Icon name="refresh" size={16} /></span><span className="hide-sm">Refresh</span></button>
               <button className="icon-btn" onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))} aria-label="Toggle theme" title="Toggle theme">
                 <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
@@ -123,6 +152,7 @@ function Shell({ user, config, onLogout }: { user: string; config: AppConfig; on
           </main>
         </div>
       </div>
+      {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
      </SearchCtx.Provider>
     </RefreshCtx.Provider>
   );
