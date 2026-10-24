@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Query } from '../hooks';
+import { InView, Reveal, RevealWords } from './Reveal';
 
 const P: Record<string, string> = {
   overview: 'M3 5a1 1 0 011-1h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1zM8 20h8M12 16v4',
@@ -77,15 +78,18 @@ export function CardHead({ title, sub, right }: { title: ReactNode; sub?: ReactN
   );
 }
 
-export function PageHeader({ title, sub, actions }: { title: string; sub?: string; actions?: ReactNode }) {
+export function PageHeader({ title, sub, actions, eyebrow }: { title: string; sub?: string; actions?: ReactNode; eyebrow?: string }) {
   return (
-    <header className="page-head">
-      <div>
-        <h1>{title}</h1>
-        {sub && <p className="muted">{sub}</p>}
-      </div>
-      {actions && <div className="page-actions">{actions}</div>}
-    </header>
+    <InView>
+      <header className="page-head">
+        {eyebrow && <Reveal className="eyebrow">{eyebrow}</Reveal>}
+        <div className="page-head-row">
+          <h1><RevealWords text={title} /></h1>
+          {actions && <Reveal stagger={3} className="page-actions">{actions}</Reveal>}
+        </div>
+        {sub && <Reveal stagger={2}><p className="muted">{sub}</p></Reveal>}
+      </header>
+    </InView>
   );
 }
 

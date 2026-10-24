@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Homelab dashboard: a React UI plus a Fastify backend that controls Proxmox guests and shows nginx, Grafana and Uptime Kuma data. Single user. All auth state lives in MongoDB.
+SPL Console (homelab dashboard): a React UI plus a Fastify backend that controls Proxmox guests and shows nginx, Grafana and Uptime Kuma data. Single user. All auth state lives in MongoDB.
 
 ## Layout
 
@@ -46,7 +46,7 @@ Units and behaviour are in `API_NOTES.md` (cpu is a 0..1 fraction, memory in byt
 
 ## Design
 
-White, neutral, airy CRM style (Inter, bundled). Colours are CSS variables at the end of the "refined neutral theme" block in `src/styles.css`; charts use blue `#0a95e8`, green `#12b076`, orange `#f07a1a`. Icons are inline SVG paths in `src/components/ui.tsx` (no icon library).
+Same design system as the company site (`C:\Code\spl-homepage`, splsystems.com): Instrument Sans (bundled), ink `#181818` on `#fbfbfb`, black/white dark theme, hairline rules, sharp 3-4px radii. Colours are the CSS variables at the top of `src/styles.css`. Charts and status use only the logo colours: red `#ed272e`, blue `#0870b9`, green `#3eb850`, periwinkle `#8499e2` (brighter variants in dark theme; use the `--red/--blue/--green/--peri` vars, never raw hex). WebGL in `src/webgl/` is ported from the site: `hero-liquid` (login) and `metallic-swirl` (Overview hero, gaming card; `BrandSwirl` multiplies it with a logo-colour gradient). Motion comes from the site too: `Reveal.tsx` (rise/fade-up, `InView`), clip-path wipe on `.btn`, row nudge on hover, dropdown menu sheet on mobile. Logo and favicon live in `public/brand/` (copied from the site). Icons are inline SVG paths in `src/components/ui.tsx` (no icon library).
 
 ## Gotchas
 

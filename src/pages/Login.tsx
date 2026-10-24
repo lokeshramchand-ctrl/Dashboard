@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { api } from '../api';
+import { Logo } from '../components/Brand';
+import { InView, Reveal, RevealWords } from '../components/Reveal';
 import { Icon, Spinner } from '../components/ui';
+import { HeroLiquid } from '../webgl/hero-liquid/HeroLiquid';
 
 export default function Login({ onLogin, demo }: { onLogin: (u: string) => void; demo: boolean }) {
   const [username, setUsername] = useState('');
@@ -23,32 +26,28 @@ export default function Login({ onLogin, demo }: { onLogin: (u: string) => void;
     }
   }
 
+  // Always the site's light hero: the liquid bands are tuned for a white ground.
   return (
-    <div className="login">
-      <aside className="login-art">
-        <div className="brand"><span className="logo"><Icon name="server" size={18} /></span>Homelab Console</div>
+    <div className="login" data-theme="light">
+      <HeroLiquid intro />
+      <Logo />
+      <InView className="login-main">
         <div>
-          <h2>Run your lab like a command center.</h2>
-          <p>Guests, sites, metrics and uptime — one calm, fast workspace.</p>
-          <ul>
-            <li><Icon name="check" size={16} />Start and stop guests safely</li>
-            <li><Icon name="check" size={16} />Grafana dashboards, embedded</li>
-            <li><Icon name="check" size={16} />Live Uptime Kuma status</li>
-          </ul>
+          <h1><RevealWords text="Engineering the intelligent future." /></h1>
+          <Reveal stagger={6}><p className="login-lead">One calm console for your guests, sites, metrics and uptime.</p></Reveal>
         </div>
-        <small>Secured session · HTTPS via nginx</small>
-      </aside>
-      <main className="login-form">
-        <form onSubmit={submit}>
-          <h1>Welcome back</h1>
-          <p className="muted">Sign in to your console.</p>
-          {error && <div className="callout err" role="alert"><Icon name="alert" size={16} /><span>{error}</span></div>}
-          <label>Username<input className="input" autoFocus autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required /></label>
-          <label>Password<input className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
-          <button className="btn btn-primary btn-lg" disabled={busy}>{busy ? <Spinner /> : null}Sign in</button>
-          {demo && <p className="muted small demo-hint">Demo mode — any username, password <code>demo</code>.</p>}
-        </form>
-      </main>
+        <Reveal stagger={4}>
+          <form onSubmit={submit}>
+            <h2>Sign in</h2>
+            {error && <div className="callout err" role="alert"><Icon name="alert" size={16} /><span>{error}</span></div>}
+            <label>Username<input className="input" autoFocus autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required /></label>
+            <label>Password<input className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
+            <button className="btn btn-primary btn-lg" disabled={busy}>{busy ? <Spinner /> : null}Sign in</button>
+            {demo && <p className="muted small demo-hint">Demo mode: any username, password <code>demo</code>.</p>}
+          </form>
+        </Reveal>
+      </InView>
+      <div className="login-foot"><span>SPL Systems · Console</span><span>Secured session · HTTPS</span></div>
     </div>
   );
 }

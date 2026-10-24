@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { api } from '../api';
+import { BrandSwirl } from '../components/Brand';
 import { Async, Badge, Chips, Icon, Menu, Meter, Modal, PageHeader, SearchBox, Spinner } from '../components/ui';
 import { fmtBytes, fmtPct, fmtUptime, sleep } from '../format';
 import { useGuestEvents, useQuery, useSearch, useToast } from '../hooks';
@@ -164,7 +165,7 @@ function GamingCard({ g, pending, onToggle, conflicts }: { g: Guest; list: Guest
   const busy = !!pending;
   return (
     <section className={`gaming ${running ? 'live' : ''}`}>
-      <div className="gaming-glow" />
+      <BrandSwirl calm />
       <div className="gaming-main">
         <div className="gaming-ic"><Icon name="gamepad" size={26} /></div>
         <div>
