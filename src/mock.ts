@@ -1,6 +1,6 @@
 // Standalone mock of the /api contract. Patches fetch + EventSource so dist/ works with no backend.
 // Disabled with VITE_MOCK=false (npm run build:prod).
-import type { Guest, GuestAction, KumaMonitor, KumaStatus, NginxSite, Heartbeat } from './types';
+import type { BackupList, Guest, GuestAction, GuestConfigPatch, Heartbeat, KumaMonitor, KumaStatus, NginxSite, RrdPoint, Snapshot, TaskRow } from './types';
 
 const GB = 1024 ** 3;
 const now = () => Date.now();
@@ -105,6 +105,130 @@ function runAction(gu: Guest, action: GuestAction) {
   return taskId;
 }
 
+// ---------- per-guest detail: config, rrd, snapshots, backups, task history ----------
+const MB = 1024 ** 2;
+const confs: Record<number, Record<string, string | number>> = {};
+const confOf = (gu: Guest) => (confs[gu.vmid] ??= gu.type === 'lxc'
+  ? {
+    hostname: gu.name, cores: 2, memory: Math.round(gu.memMax / MB), swap: 512, onboot: 1, tags: gu.tags.join(';'), description: '',
+    ostype: 'debian', arch: 'amd64', unprivileged: 1, rootfs: `local-zfs:subvol-${gu.vmid}-disk-0,size=16G`,
+    net0: `name=eth0,bridge=vmbr0,hwaddr=BC:24:11:00:${gu.vmid.toString(16).padStart(2, '0')}:A1,ip=dhcp,type=veth`, features: 'nesting=1',
+  }
+  : {
+    name: gu.name, cores: 4, sockets: 1, memory: Math.round(gu.memMax / MB), balloon: 0, onboot: 1, tags: gu.tags.join(';'), description: '',
+    ostype: 'l26', machine: 'q35', bios: 'ovmf', scsi0: `local-zfs:vm-${gu.vmid}-disk-0,size=64G`, net0: 'virtio=BC:24:11:AA:BB:CC,bridge=vmbr0',
+    ...(gu.vmid === 108 ? { serial0: 'socket' } : {}),
+  });
+
+const snaps: Record<number, Snapshot[]> = {
+  101: [{ name: 'before-upgrade', description: 'Jellyfin 10.9 upgrade', time: Math.floor(now() / 1000) - 86400 * 6, vmstate: false, parent: null }],
+};
+const backupItems: BackupList['items'] = [103, 101, 104].map((vmid, i) => ({
+  volid: `backups:backup/vzdump-lxc-${vmid}-2026_10_2${i}-03_00_01.tar.zst`, storage: 'backups', size: (1.2 + i) * GB,
+  time: Math.floor(now() / 1000) - 86400 * (i + 1), format: 'tar.zst', notes: 'nightly',
+}));
+const history: Record<number, TaskRow[]> = {};
+const logs: Record<string, string[]> = {};
+
+function newTask(vmid: number, type: string, durMs = 2500, failMsg?: string) {
+  const upid = `UPID:pve:${Math.random().toString(16).slice(2, 10)}:${type}:${vmid}:dashboard@pve!ui:`;
+  tasks[upid] = { doneAt: now() + durMs, fail: failMsg ? `TASK ERROR: ${failMsg}` : undefined, ok: 'TASK OK' };
+  const row: TaskRow = { upid, type, user: 'dashboard@pve!ui', start: Math.floor(now() / 1000), end: null, status: 'running', message: '' };
+  (history[vmid] ??= []).unshift(row);
+  logs[upid] = [`starting task ${upid}`, `${type} guest ${vmid}`];
+  setTimeout(() => {
+    row.end = Math.floor(now() / 1000) + 1;
+    row.status = failMsg ? 'error' : 'ok';
+    row.message = failMsg ?? 'OK';
+    logs[upid].push(failMsg ? `TASK ERROR: ${failMsg}` : 'TASK OK');
+  }, durMs);
+  return upid;
+}
+
+function rrd(gu: Guest, tf: string): RrdPoint[] {
+  const span = ({ hour: 3600, day: 86400, week: 604800, month: 2592000, year: 31536000 } as Record<string, number>)[tf] ?? 3600;
+  const n = 70, end = Math.floor(now() / 1000);
+  let seed = gu.vmid * 31 + span;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  return Array.from({ length: n }, (_, i) => {
+    const t = end - span + Math.round((i / (n - 1)) * span);
+    const w = Math.sin(t / (span / 6));
+    const on = gu.status === 'running';
+    return {
+      time: t, cpu: on ? Math.max(0.01, 0.12 + w * 0.06 + rnd() * 0.04) : null,
+      mem: on ? gu.memMax * (0.4 + w * 0.04 + rnd() * 0.02) : null, maxmem: gu.memMax,
+      netin: on ? 40_000 + (w + 1) * 30_000 + rnd() * 20_000 : null, netout: on ? 25_000 + (w + 1) * 20_000 + rnd() * 10_000 : null,
+      diskread: on ? rnd() * 120_000 : null, diskwrite: on ? 80_000 + rnd() * 200_000 : null,
+    };
+  });
+}
+
+// ---------- fake shell (WebSocket) ----------
+const enc = new TextEncoder();
+class MockShell {
+  readyState = 0;
+  binaryType = 'arraybuffer';
+  onopen: (() => void) | null = null;
+  onmessage: ((e: { data: unknown }) => void) | null = null;
+  onclose: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  private line = '';
+  private name = '';
+  constructor(url: string) {
+    const vmid = Number(url.match(/guests\/(\d+)\/shell/)?.[1]);
+    const gu = guests.find((x) => x.vmid === vmid);
+    this.name = gu?.name ?? 'guest';
+    setTimeout(() => {
+      this.readyState = 1;
+      this.onopen?.();
+      const err = !authed() ? 'Login required'
+        : !gu ? 'Guest does not exist or is not allowed'
+        : gu.protected ? `Guest ${gu.vmid} (${gu.name}) is protected`
+        : gu.status !== 'running' ? `${gu.name} is not running`
+        : gu.type === 'qemu' && confOf(gu).serial0 !== 'socket' ? 'This VM has no serial terminal (serial0: socket)' : '';
+      if (err) { this.json({ t: 'error', message: err }); setTimeout(() => this.close(), 50); return; }
+      this.json({ t: 'ready' });
+      this.out(`\x1b[2mDemo shell: commands are simulated. Try: help\x1b[0m\r\n${this.prompt()}`);
+    }, 450);
+  }
+  private json(o: object) { this.onmessage?.({ data: JSON.stringify(o) }); }
+  private out(s: string) { this.onmessage?.({ data: enc.encode(s).buffer }); }
+  private prompt() { return `\x1b[32mroot@${this.name}\x1b[0m:\x1b[34m~\x1b[0m# `; }
+  send(raw: string) {
+    let m: { t?: string; d?: string };
+    try { m = JSON.parse(raw); } catch { return; }
+    if (m.t !== 'i' || !m.d) return;
+    for (const ch of m.d) {
+      if (ch === '\r') { this.out('\r\n'); this.run(this.line.trim()); this.line = ''; }
+      else if (ch === '\x7f') { if (this.line) { this.line = this.line.slice(0, -1); this.out('\b \b'); } }
+      else if (ch === '\x03') { this.line = ''; this.out(`^C\r\n${this.prompt()}`); }
+      else if (ch === '\x04') { this.out('logout\r\n'); this.json({ t: 'exit' }); this.close(); }
+      else if (ch >= ' ') { this.line += ch; this.out(ch); }
+    }
+  }
+  private run(cmd: string) {
+    const gu = guests.find((x) => x.name === this.name);
+    const [c, ...a] = cmd.split(/\s+/);
+    const L: Record<string, string> = {
+      '': '', help: 'Available: help, ls, pwd, whoami, hostname, uname, uptime, free, df, date, echo, clear, exit',
+      ls: 'bin  etc  home  opt  srv  var', pwd: '/root', whoami: 'root', hostname: this.name,
+      uname: `Linux ${this.name} 6.8.12-4-pve #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux`,
+      uptime: ` ${new Date().toLocaleTimeString()} up ${gu ? Math.floor(gu.uptime / 86400) : 0} days, load average: 0.08, 0.11, 0.09`,
+      free: '               total        used        free\r\nMem:         4194304      1677721     2516583\r\nSwap:         524288           0      524288',
+      df: 'Filesystem      Size  Used Avail Use% Mounted on\r\nrootfs           16G  3.1G   12G  21% /', date: new Date().toString(),
+      echo: a.join(' '),
+    };
+    if (c === 'clear') { this.out(`\x1b[2J\x1b[H${this.prompt()}`); return; }
+    if (c === 'exit') { this.out('logout\r\n'); this.json({ t: 'exit' }); this.close(); return; }
+    this.out((c in L ? (L[c] ? `${L[c]}\r\n` : '') : `bash: ${c}: command not found\r\n`) + this.prompt());
+  }
+  close() {
+    if (this.readyState === 3) return;
+    this.readyState = 3;
+    setTimeout(() => this.onclose?.(), 0);
+  }
+}
+
 // ---------- metrics ----------
 function series(query: string, start: number, end: number, step: number) {
   const n = Math.min(400, Math.floor((end - start) / step) + 1);
@@ -169,7 +293,57 @@ async function handle(method: string, path: string, body: any): Promise<Response
     });
   }
   if (path === '/guests') { jitter(); return json(guests); }
-  let m = path.match(/^\/guests\/(\d+)(?:\/(start|shutdown|stop|reboot))?$/);
+  let m: RegExpMatchArray | null = path.match(/^\/guests\/(\d+)\/(config|rrd|tasks|snapshots|backups)(?:\/([^/?]+)(?:\/(rollback))?)?(?:\?(.*))?$/);
+  if (m) {
+    const gu = guests.find((x) => x.vmid === +m![1]);
+    if (!gu) return fail(404, 'NOT_FOUND', `Guest ${m[1]} does not exist or is not allowed`);
+    const [, , what, sub, sub2, qs] = m;
+    const write = method !== 'GET';
+    if (write && gu.protected) return fail(403, 'PROTECTED', `Guest ${gu.vmid} (${gu.name}) is protected`);
+    if (what === 'config') {
+      const c = confOf(gu);
+      if (!write) return json({ config: c, pending: [] });
+      const p = (body ?? {}) as GuestConfigPatch;
+      if (!Object.keys(p).length) return fail(400, 'BAD_REQUEST', 'Nothing to change');
+      for (const [k, v] of Object.entries(p)) {
+        if (k === 'memory' && (v as number) < 16) return fail(400, 'BAD_REQUEST', 'memory must be a whole number between 16 and 1048576');
+        if (k === 'tags') c.tags = (v as string[]).join(';');
+        else if (k === 'onboot') c.onboot = v ? 1 : 0;
+        else c[k] = v as string | number;
+        if (k === 'memory') gu.memMax = (v as number) * MB;
+        if (k === 'hostname' || k === 'name') gu.name = String(v);
+      }
+      gu.tags = String(c.tags || '').split(';').filter(Boolean);
+      return json({ ok: true });
+    }
+    if (what === 'rrd') return json(rrd(gu, new URLSearchParams(qs).get('timeframe') ?? 'hour'));
+    if (what === 'tasks') return json(history[gu.vmid] ?? []);
+    if (what === 'backups') {
+      if (!write) return json({ storages: ['backups', 'local'], defaultStorage: 'backups', items: backupItems.filter((b) => b.volid.includes(`-${gu.vmid}-`)) } satisfies BackupList);
+      const storage = String(body?.storage ?? 'backups');
+      setTimeout(() => backupItems.unshift({
+        volid: `${storage}:backup/vzdump-${gu.type}-${gu.vmid}-${new Date().toISOString().replace(/[-:T]/g, '_').slice(0, 19)}.tar.zst`,
+        storage, size: 0.9 * GB, time: Math.floor(now() / 1000), format: 'tar.zst', notes: body?.notes ?? '',
+      }), 4800);
+      return json({ taskId: newTask(gu.vmid, 'vzdump', 5000) });
+    }
+    const list = (snaps[gu.vmid] ??= []);
+    if (!write) return json(list);
+    if (method === 'POST' && !sub) {
+      if (!/^[A-Za-z][A-Za-z0-9_-]{1,39}$/.test(body?.name ?? '')) return fail(400, 'BAD_REQUEST', 'name is invalid');
+      if (list.some((x) => x.name === body.name)) return fail(502, 'PVE_ERROR', `Proxmox 500: snapshot '${body.name}' already exists`);
+      const parent = list.length ? list[list.length - 1].name : null;
+      setTimeout(() => list.push({ name: body.name, description: body.description ?? '', time: Math.floor(now() / 1000), vmstate: !!body.vmstate, parent }), 1800);
+      return json({ taskId: newTask(gu.vmid, gu.type === 'lxc' ? 'vzsnapshot' : 'qmsnapshot', 2000) });
+    }
+    if (!list.some((x) => x.name === sub)) return fail(404, 'NOT_FOUND', `Snapshot ${sub} not found`);
+    if (sub2 === 'rollback') return json({ taskId: newTask(gu.vmid, 'vzrollback', 3000) });
+    setTimeout(() => { const i = list.findIndex((x) => x.name === sub); if (i >= 0) list.splice(i, 1); }, 1500);
+    return json({ taskId: newTask(gu.vmid, 'vzdelsnapshot', 1800) });
+  }
+  m = path.match(/^\/tasks\/(.+)\/log$/);
+  if (m) return json({ lines: logs[decodeURIComponent(m[1])] ?? [] });
+  m = path.match(/^\/guests\/(\d+)(?:\/(start|shutdown|stop|reboot))?$/);
   if (m) {
     const gu = guests.find((x) => x.vmid === +m![1]);
     if (!gu) return fail(404, 'NOT_FOUND', `Guest ${m[1]} does not exist`);
@@ -219,7 +393,14 @@ export function installMock() {
     await wait(120 + Math.random() * 220);
     let body: unknown;
     try { body = init?.body ? JSON.parse(String(init.body)) : undefined; } catch { body = undefined; }
-    return handle((init?.method || 'GET').toUpperCase(), url.pathname.slice(4), body);
+    return handle((init?.method || 'GET').toUpperCase(), url.pathname.slice(4) + url.search, body);
   };
   (window as any).EventSource = MockEventSource;
+  const RealWS = window.WebSocket;
+  (window as any).WebSocket = class extends RealWS {
+    constructor(url: string | URL, protocols?: string | string[]) {
+      if (/\/api\/guests\/\d+\/shell/.test(String(url))) return new MockShell(String(url)) as unknown as WebSocket;
+      super(url, protocols);
+    }
+  };
 }
