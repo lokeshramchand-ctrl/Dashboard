@@ -411,3 +411,40 @@ kbd { font: 500 11px/1 ui-monospace, Menlo, Consolas, monospace; padding: 3px 6p
 .pointer-events-none { pointer-events: none; } .overflow-hidden { overflow: hidden; }
 .opacity-0 { opacity: 0; } .opacity-20 { opacity: .2; } .transition-opacity { transition: opacity .3s; } .duration-300 { transition-duration: .3s; }
 canvas[hidden], [hidden] { display: none !important; }
+
+/* ---------- soft modern layer: rounded, floating, glassy ---------- */
+:root, [data-theme='light'] {
+  --r: 16px; --r-sm: 10px;
+  --lift: 0 1px 2px rgba(24, 24, 24, .04), 0 8px 24px -12px rgba(24, 24, 24, .14);
+  --lift-hi: 0 2px 4px rgba(24, 24, 24, .05), 0 18px 40px -16px rgba(24, 24, 24, .22);
+  --glass: rgba(255, 255, 255, .72);
+  --wash: radial-gradient(60rem 30rem at 85% -10%, rgba(132, 153, 226, .16), transparent 60%), radial-gradient(50rem 28rem at -5% 10%, rgba(62, 184, 80, .09), transparent 60%);
+}
+[data-theme='dark'] {
+  --lift: 0 0 0 1px rgba(255, 255, 255, .02), 0 10px 30px -14px rgba(0, 0, 0, .9);
+  --lift-hi: 0 0 0 1px rgba(255, 255, 255, .05), 0 22px 48px -16px rgba(0, 0, 0, 1);
+  --glass: rgba(14, 14, 14, .72);
+  --wash: radial-gradient(60rem 30rem at 85% -10%, rgba(163, 180, 245, .13), transparent 60%), radial-gradient(50rem 28rem at -5% 10%, rgba(85, 208, 106, .07), transparent 60%);
+}
+body { background: var(--wash) no-repeat fixed, var(--bg); }
+.head { background: var(--glass); backdrop-filter: blur(20px) saturate(1.6); }
+.card, .tiles { border-radius: var(--r); box-shadow: var(--lift); border-color: color-mix(in srgb, var(--border) 70%, transparent); transition: box-shadow .4s var(--ease), transform .4s var(--ease), border-color var(--cc-slow) var(--ease); }
+.card:not(.table):hover { box-shadow: var(--lift-hi); transform: translateY(-2px); }
+.table, .tiles { overflow: hidden; } .table { overflow: clip; }
+.hero, .gaming { border-radius: 24px; box-shadow: var(--lift-hi); }
+.btn, .search, .gaming-btn { border-radius: 999px; }
+.btn { padding: 0 20px; }
+.search { padding: 0 16px; }
+.badge { border-radius: 999px; padding: 0 10px; }
+.gaming-ic { border-radius: 16px; }
+.menu-pop, .modal { border-radius: 20px; backdrop-filter: blur(20px); }
+.modal { background: color-mix(in srgb, var(--surface) 92%, transparent); border-color: var(--border); }
+.menu-pop button, code { border-radius: var(--r-sm); }
+.tile:hover { background: color-mix(in srgb, var(--tc, var(--text)) 5%, var(--surface)); }
+.g-row:not(.g-head):hover, .n-row:not(.g-head):hover, .k-row:not(.g-head):hover { background: color-mix(in srgb, var(--text) 3.5%, transparent); }
+.g-row.is-pending { box-shadow: inset 3px 0 0 var(--peri); }
+.switch { width: 46px; height: 26px; border-radius: 999px; }
+.switch i { width: 22px; height: 22px; }
+.switch.on i { transform: translateX(20px); } .switch.busy i { transform: translateX(10px); }
+.switch.on:active:not(:disabled) i { transform: translateX(16px); }
+.avatar { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px var(--border-2); }
