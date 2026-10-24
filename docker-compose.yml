@@ -1,0 +1,39 @@
+# Dashboard + MongoDB.   cp .env.example .env   then   docker compose up -d --build
+# Create the first user:  docker compose run --rm app node build/create-user.js <name>
+services:
+  app:
+    build: .
+    image: homelab-dashboard:latest
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      # Container-internal wiring; these override whatever is in .env.
+      HOST: 0.0.0.0
+      PORT: 3000
+      MONGO_URI: mongodb://mongo:27017
+      SERVE_DIST: /app/dist
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      # Read-only: the backend never writes to nginx.
+      - ${NGINX_SITES_HOST_DIR:-./nginx-sites}:/etc/nginx/sites-enabled:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mongo-data:
