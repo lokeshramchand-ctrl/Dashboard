@@ -101,7 +101,7 @@ export default function Guests() {
                         <Switch on={on} busy={!!p} disabled={g.protected} label={`${running ? 'Shut down' : 'Start'} ${g.name}`} onClick={() => toggle(g, list)} />
                       </span>
                       <span className="c-name">
-                        <b>{g.name}</b>
+                        <a className="row-link" href={`#/guests/${g.vmid}`}><b>{g.name}</b></a>
                         <small className="muted">#{g.vmid}{g.tags.slice(0, 3).map((t) => <em key={t} className="tag">{t}</em>)}</small>
                       </span>
                       <span className="c-type"><Badge tone={g.type === 'qemu' ? 'blue' : 'gray'}>{g.type === 'qemu' ? 'VM' : 'LXC'}</Badge></span>
@@ -114,9 +114,13 @@ export default function Guests() {
                       <span className="c-mem"><span className="mv">{running ? `${fmtBytes(g.memUsed)} / ${fmtBytes(g.memMax, 0)}` : fmtBytes(g.memMax, 0)}</span><Meter value={running ? g.memUsed / g.memMax : 0} /></span>
                       <span className="c-up muted">{running ? fmtUptime(g.uptime) : '–'}</span>
                       <span className="c-menu">
-                        <Menu label={`More actions for ${g.name}`} disabled={g.protected || !!p || !running} items={[
-                          { label: 'Reboot', icon: 'rotate', onClick: () => setConfirm({ g, action: 'reboot' }) },
-                          { label: 'Force stop', icon: 'stop', danger: true, onClick: () => setConfirm({ g, action: 'stop' }) },
+                        <Menu label={`More actions for ${g.name}`} disabled={!!p} items={[
+                          { label: 'Manage', icon: 'server', onClick: () => { location.hash = `#/guests/${g.vmid}`; } },
+                          ...(running && !g.protected ? [
+                            { label: 'Console', icon: 'terminal' as const, onClick: () => { location.hash = `#/guests/${g.vmid}/console`; } },
+                            { label: 'Reboot', icon: 'rotate' as const, onClick: () => setConfirm({ g, action: 'reboot' }) },
+                            { label: 'Force stop', icon: 'stop' as const, danger: true, onClick: () => setConfirm({ g, action: 'stop' }) },
+                          ] : []),
                         ]} />
                       </span>
                     </div>
