@@ -351,3 +351,17 @@ button:disabled { cursor: not-allowed; }
   .topsearch { max-width: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ---------- command palette ---------- */
+kbd { font: 500 11px/1 ui-monospace, Menlo, Consolas, monospace; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--border-2); background: var(--surface-2); color: var(--muted); }
+.kbd-btn { color: var(--muted); gap: 8px; }
+.cmdk-scrim { place-items: start center; padding-top: 12vh; }
+.cmdk { width: 100%; max-width: 560px; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow-lg); overflow: hidden; animation: rise .18s ease; }
+.cmdk-input { display: flex; align-items: center; gap: 10px; padding: 0 16px; height: 56px; border-bottom: 1px solid var(--border); color: var(--muted); }
+.cmdk-input input { flex: 1; border: 0; outline: none; background: transparent; color: var(--text); font: inherit; font-size: 15px; min-width: 0; }
+.cmdk-list { list-style: none; margin: 0; padding: 6px; max-height: min(420px, 60vh); overflow-y: auto; }
+.cmdk-group { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); padding: 10px 10px 4px; }
+.cmdk-list button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 9px 10px; border: 0; border-radius: 10px; background: none; text-align: left; font-weight: 530; }
+.cmdk-list button.on { background: var(--gray-soft); }
+.cmdk-empty { padding: 24px; text-align: center; }
+@media (max-width: 900px) { .cmdk-scrim { padding-top: 8vh; } }
