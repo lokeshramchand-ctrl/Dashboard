@@ -17,12 +17,17 @@ server/            Fastify backend (TypeScript, compiled on the dev PC)
   src/{nginx,grafana,kuma,overview}.ts
   src/create-user.ts   CLI to create a user or reset a password
 API_NOTES.md       units/format contract between UI and backend
+mobile/            Expo / React Native app (same /api contract; cookie session)
+AGENTS.md          tool-neutral agent rules (keep in sync with this file)
+docker-compose.yml app + MongoDB; Dockerfile builds UI + backend into one image
 ```
 
 ## Commands
 
 - UI: `npm install`, `npm run dev`, `npm run build` (mock API ON, standalone demo, password `demo`), `npm run build:prod` (mock OFF, real backend)
 - Backend: `cd server && npm install && npm run build`; `npm run create-user -- <name>`; `npm start` (needs `server/.env`, copy from `.env.example`)
+- Mobile: `cd mobile && npm install && npm run typecheck`; `npm start` (Expo). It signs in with the same cookie session; the server URL is entered on the login screen.
+- Docker: `cp .env.example .env && docker compose up -d --build`, then `docker compose run --rm app node build/create-user.js <name>`.
 - Node >= 20.6 (uses `--env-file`). Ship `server/` as `build/` + `node_modules` + `package.json`; no build tools on the server.
 
 ## Rules that must not break
