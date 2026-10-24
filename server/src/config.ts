@@ -41,6 +41,8 @@ export const cfg = {
   allowedVmids: new Set(ids('ALLOWED_VMIDS')), // empty = every guest on the node
   protectedVmids: new Set(ids('PROTECTED_VMIDS')),
   conflicts: conflicts(),
+  shellEnabled: bool('SHELL_ENABLED', false), // in-browser root shell into guests (Proxmox termproxy)
+  backupStorage: env('PVE_BACKUP_STORAGE'), // default vzdump target, e.g. "local"
 
   nginxDir: env('NGINX_SITES_DIR', '/etc/nginx/sites-enabled'),
 
