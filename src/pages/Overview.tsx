@@ -1,4 +1,6 @@
 import { api } from '../api';
+import { BrandSwirl } from '../components/Brand';
+import { InView, Reveal, RevealWords } from '../components/Reveal';
 import { AreaCard } from '../components/AreaCard';
 import { Async, Badge, Card, CardHead, ErrorState, Icon, Meter, PageHeader, Skeleton } from '../components/ui';
 import type { IconName, Tone } from '../components/ui';
@@ -8,10 +10,9 @@ import type { Overview as Ov } from '../types';
 
 function Tile({ icon, label, value, sub, tone, href }: { icon: IconName; label: string; value: string | number; sub: string; tone: Tone; href: string }) {
   return (
-    <a className="tile" href={href}>
-      <div className={`tile-ic ic-${tone}`}><Icon name={icon} /></div>
+    <a className={`tile ic-${tone}`} href={href}>
+      <div className="tile-top"><span className="tile-label">{label}</span><span className="tile-ic"><Icon name={icon} size={20} /></span></div>
       <div>
-        <p className="tile-label">{label}</p>
         <p className="tile-value">{value}</p>
         <p className="tile-sub">{sub}</p>
       </div>
@@ -43,7 +44,7 @@ export default function Overview() {
 
   return (
     <>
-      <PageHeader title="Overview" sub="Everything running across your homelab, at a glance." />
+      <Hero items={items} ov={ov.data} />
 
       <Card className="attn-card">
         {items === null ? (
@@ -74,11 +75,11 @@ export default function Overview() {
       </Card>
 
       <div className="grid-3">
-        <AreaCard icon="cpu" title="CPU Usage" sub="Processor utilization over time" color="#0a95e8" format={pct}
+        <AreaCard icon="cpu" title="CPU Usage" sub="Processor utilization over time" color="var(--blue)" format={pct}
           query={'100 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100'} />
-        <AreaCard icon="pulse" title="Memory Usage" sub="RAM consumption trends" color="#12b076" format={pct}
+        <AreaCard icon="pulse" title="Memory Usage" sub="RAM consumption trends" color="var(--green)" format={pct}
           query={'(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100'} />
-        <AreaCard icon="network" title="Network Traffic" sub="Network bandwidth utilization" color="#f07a1a" format={(v) => `${(v / 1e6).toFixed(0)} MB/s`}
+        <AreaCard icon="network" title="Network Traffic" sub="Network bandwidth utilization" color="var(--peri)" format={(v) => `${(v / 1e6).toFixed(0)} MB/s`}
           query={'rate(node_network_receive_bytes_total{device="vmbr0"}[5m])'} />
       </div>
 
@@ -135,5 +136,26 @@ function Res({ icon, label, pct, text }: { icon: IconName; label: string; pct: n
       <div className="res-top"><span><Icon name={icon} size={15} />{label}</span><b>{text}</b></div>
       <Meter value={pct} />
     </div>
+  );
+}
+
+function Hero({ items, ov }: { items: Attn[] | null; ov?: Ov }) {
+  const bad = !!items?.length;
+  return (
+    <InView>
+      <section className="hero">
+        <BrandSwirl />
+        <div className="hero-meta">
+          <span>SPL Console</span>
+          <span>{new Date().toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+        </div>
+        <h1><RevealWords text="Everything, at a glance." /></h1>
+        <Reveal stagger={5} className="hero-sub">
+          <i className={`hero-dot ${bad ? 'bad' : ''}`} />
+          <span>{items === null ? 'Checking systems…' : bad ? `${items.length} ${items.length === 1 ? 'item needs' : 'items need'} attention` : 'All systems healthy'}</span>
+          {ov && <><span className="sep" /><span>{ov.guests.running} of {ov.guests.total} guests running</span></>}
+        </Reveal>
+      </section>
+    </InView>
   );
 }

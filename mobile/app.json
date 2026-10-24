@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "Homelab",
+    "slug": "homelab-dashboard",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "scheme": "homelab",
+    "ios": { "supportsTablet": true, "bundleIdentifier": "dev.homelab.dashboard" },
+    "android": { "package": "dev.homelab.dashboard", "usesCleartextTraffic": true },
+    "plugins": ["expo-secure-store"]
+  }
+}
