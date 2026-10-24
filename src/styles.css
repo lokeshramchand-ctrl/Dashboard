@@ -228,6 +228,20 @@ kbd { font: 500 11px/1 ui-monospace, Menlo, Consolas, monospace; padding: 3px 6p
 .switch i { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); transition: transform var(--cc-slow) var(--ease); color: #181818; }
 .switch.on { background: var(--green); } .switch.on i { transform: translateX(18px); }
 .switch.busy { background: var(--peri); } .switch:disabled:not(.busy) { opacity: .4; }
+/* spring thumb, and a mid-travel "in transit" state while the Proxmox task runs */
+.switch i { transition: transform .45s cubic-bezier(.34, 1.56, .64, 1); }
+.switch:active:not(:disabled) i { width: 24px; }
+.switch.on:active:not(:disabled) i { transform: translateX(14px); }
+.switch.busy i { transform: translateX(9px); }
+.switch.busy::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .45), transparent); background-size: 40% 100%; background-repeat: no-repeat;
+  animation: sw-sweep 1.2s linear infinite; }
+@keyframes sw-sweep { from { background-position: -50% 0; } to { background-position: 150% 0; } }
+/* press-and-hold confirm */
+.btn.hold { position: relative; overflow: hidden; user-select: none; touch-action: none; }
+.hold-fill { position: absolute; inset: 0; transform: scaleX(0); transform-origin: left; background: currentColor; opacity: .22; transition: transform .2s var(--ease); pointer-events: none; }
+.btn.hold.holding .hold-fill { transform: scaleX(1); transition: transform var(--hold-ms) linear; }
+.hold-label { position: relative; } .hold-label small { opacity: .6; font-size: inherit; }
 
 /* menu */
 .menu { position: relative; }

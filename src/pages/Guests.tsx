@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { api } from '../api';
 import { BrandSwirl } from '../components/Brand';
-import { Async, Badge, Chips, Icon, Menu, Meter, Modal, PageHeader, SearchBox, Spinner } from '../components/ui';
+import { Async, Badge, Chips, HoldButton, Icon, Menu, Meter, Modal, PageHeader, SearchBox, Spinner } from '../components/ui';
 import { fmtBytes, fmtPct, fmtUptime, sleep } from '../format';
 import { useGuestEvents, useQuery, useSearch, useToast } from '../hooks';
 import type { Guest, GuestAction } from '../types';
@@ -132,10 +132,9 @@ export default function Guests() {
         <Modal title={`${VERB[confirm.action]} ${confirm.g.name}?`} onClose={() => setConfirm(null)} footer={
           <>
             <button className="btn" onClick={() => setConfirm(null)}>Cancel</button>
-            <button className={`btn ${confirm.action === 'stop' ? 'btn-danger' : 'btn-primary'}`} autoFocus
-              onClick={() => { const c = confirm; setConfirm(null); run(c.g, c.action); }}>
-              {confirm.warn ? 'Start anyway' : VERB[confirm.action]}
-            </button>
+            {confirm.action === 'start'
+              ? <button className="btn btn-primary" autoFocus onClick={() => { const c = confirm; setConfirm(null); run(c.g, c.action); }}>{confirm.warn ? 'Start anyway' : 'Start'}</button>
+              : <HoldButton danger={confirm.action === 'stop'} onConfirm={() => { const c = confirm; setConfirm(null); run(c.g, c.action); }}>{VERB[confirm.action]}</HoldButton>}
           </>
         }>
           {confirm.warn && <div className="callout warn"><Icon name="alert" size={16} /><span>{confirm.warn}</span></div>}
