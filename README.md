@@ -34,7 +34,7 @@ docker compose up -d --build
 docker compose run --rm app node build/create-user.js admin
 ```
 
-Open `http://localhost:3000`. The compose file runs the app next to MongoDB. Put it behind an HTTPS reverse proxy and set `COOKIE_SECURE=true` for anything beyond a trusted LAN.
+Open `http://localhost:3000`. Click a guest to manage it: live charts, resources and options, snapshots, backups, task log and (if enabled) a shell. The compose file runs the app next to MongoDB. Put it behind an HTTPS reverse proxy and set `COOKIE_SECURE=true` for anything beyond a trusted LAN.
 
 > Note: the Docker setup has been validated with `docker compose config` but the image build has not been run in CI yet.
 
@@ -62,7 +62,7 @@ Enter your dashboard URL (for example `https://dash.home.lan`) on the login scre
 
 ## Security model
 
-Auth state lives only in MongoDB (scrypt password hashes, hashed session tokens, rate-limit counters, audit log). The cookie is `httpOnly` and `SameSite=Strict`. Guest actions are checked against `ALLOWED_VMIDS` / `PROTECTED_VMIDS` and every attempt is audited. Report vulnerabilities per [`SECURITY.md`](SECURITY.md).
+The Proxmox token only needs the privileges for the features you use (see `.env.example`). The in-browser shell gives root inside guests, so it is off by default (`SHELL_ENABLED=true` to enable) and your reverse proxy must pass WebSocket upgrades. Auth state lives only in MongoDB (scrypt password hashes, hashed session tokens, rate-limit counters, audit log). The cookie is `httpOnly` and `SameSite=Strict`. Guest actions are checked against `ALLOWED_VMIDS` / `PROTECTED_VMIDS` and every attempt is audited. Report vulnerabilities per [`SECURITY.md`](SECURITY.md).
 
 ## Docs
 
