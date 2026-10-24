@@ -1,3 +1,4 @@
+import { sleep } from './format';
 import type {
   AppConfig, BackupList, Guest, GuestAction, GuestConfig, GuestConfigPatch, GrafanaDashboard, GrafanaPanel, KumaIncident, KumaMonitor,
   NginxSite, Overview, PromResult, RrdPoint, Snapshot, Task, TaskRow, Timeframe,
@@ -71,6 +72,17 @@ export const api = {
   monitors: () => get<KumaMonitor[]>('/kuma/monitors'),
   incidents: () => get<KumaIncident[]>('/kuma/incidents'),
 };
+
+/** Polls a Proxmox task every second until it finishes; rejects with the task's error text. */
+export async function waitTask(taskId: string, maxSeconds = 300): Promise<void> {
+  for (let i = 0; i < maxSeconds; i++) {
+    await sleep(1000);
+    const t = await api.task(taskId);
+    if (t.status === 'error') throw new Error(t.message || 'Task failed');
+    if (t.status === 'ok') return;
+  }
+  throw new Error('Timed out waiting for the task to finish');
+}
 
 /** Optional runtime config shipped next to index.html (see API_NOTES.md). */
 export async function loadConfig(): Promise<AppConfig> {
