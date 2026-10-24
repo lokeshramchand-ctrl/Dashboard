@@ -89,3 +89,33 @@ export interface AppConfig {
   kumaStatusUrl?: string;
   grafanaUrl?: string;
 }
+
+export interface GuestConfig {
+  config: Record<string, string | number>;
+  pending: string[]; // keys Proxmox applies at the next restart
+}
+
+export type GuestConfigPatch = Partial<{
+  hostname: string; name: string; description: string; tags: string[]; onboot: boolean; startup: string;
+  cores: number; sockets: number; memory: number; swap: number; balloon: number; cpulimit: number;
+}>;
+
+/** One RRD sample: cpu 0..1, memory/disk in bytes, net in bytes/s, time in unix seconds. */
+export interface RrdPoint {
+  time: number; cpu: number | null; mem: number | null; maxmem: number | null;
+  netin: number | null; netout: number | null; diskread: number | null; diskwrite: number | null;
+}
+export type Timeframe = 'hour' | 'day' | 'week' | 'month' | 'year';
+
+export interface TaskRow {
+  upid: string; type: string; user: string; start: number; end: number | null;
+  status: 'running' | 'ok' | 'error'; message: string;
+}
+
+export interface Snapshot { name: string; description: string; time: number | null; vmstate: boolean; parent: string | null }
+
+export interface BackupList {
+  storages: string[];
+  defaultStorage: string | null;
+  items: { volid: string; storage: string; size: number; time: number; format: string; notes: string }[];
+}
