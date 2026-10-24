@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Homelab dashboard: a React UI plus a Fastify backend that controls Proxmox guests and shows nginx, Grafana and Uptime Kuma data. Single user. All auth state lives in MongoDB.
+SPL Console (homelab dashboard): a React UI plus a Fastify backend that controls Proxmox guests and shows nginx, Grafana and Uptime Kuma data. Single user. All auth state lives in MongoDB.
 
 ## Layout
 
@@ -17,12 +17,17 @@ server/            Fastify backend (TypeScript, compiled on the dev PC)
   src/{nginx,grafana,kuma,overview}.ts
   src/create-user.ts   CLI to create a user or reset a password
 API_NOTES.md       units/format contract between UI and backend
+mobile/            Expo / React Native app (same /api contract; cookie session)
+AGENTS.md          tool-neutral agent rules (keep in sync with this file)
+docker-compose.yml app + MongoDB; Dockerfile builds UI + backend into one image
 ```
 
 ## Commands
 
 - UI: `npm install`, `npm run dev`, `npm run build` (mock API ON, standalone demo, password `demo`), `npm run build:prod` (mock OFF, real backend)
 - Backend: `cd server && npm install && npm run build`; `npm run create-user -- <name>`; `npm start` (needs `server/.env`, copy from `.env.example`)
+- Mobile: `cd mobile && npm install && npm run typecheck`; `npm start` (Expo). It signs in with the same cookie session; the server URL is entered on the login screen.
+- Docker: `cp .env.example .env && docker compose up -d --build`, then `docker compose run --rm app node build/create-user.js <name>`.
 - Node >= 20.6 (uses `--env-file`). Ship `server/` as `build/` + `node_modules` + `package.json`; no build tools on the server.
 
 ## Rules that must not break
@@ -41,7 +46,7 @@ Units and behaviour are in `API_NOTES.md` (cpu is a 0..1 fraction, memory in byt
 
 ## Design
 
-White, neutral, airy CRM style (Inter, bundled). Colours are CSS variables at the end of the "refined neutral theme" block in `src/styles.css`; charts use blue `#0a95e8`, green `#12b076`, orange `#f07a1a`. Icons are inline SVG paths in `src/components/ui.tsx` (no icon library).
+Same design system as the company site (`C:\Code\spl-homepage`, splsystems.com): Instrument Sans (bundled), ink `#181818` on `#fbfbfb`, black/white dark theme, hairline rules, soft modern layer at the end of `src/styles.css` (16px cards, pill buttons and badges, floating shadows, glass header; was sharp 3-4px radii). Colours are the CSS variables at the top of `src/styles.css`. Charts and status use only the logo colours: red `#ed272e`, blue `#0870b9`, green `#3eb850`, periwinkle `#8499e2` (brighter variants in dark theme; use the `--red/--blue/--green/--peri` vars, never raw hex). WebGL in `src/webgl/` is ported from the site: `hero-liquid` (login) and `metallic-swirl` (Overview hero, gaming card; `BrandSwirl` multiplies it with a logo-colour gradient). Motion comes from the site too: `Reveal.tsx` (rise/fade-up, `InView`), clip-path wipe on `.btn`, row nudge on hover, dropdown menu sheet on mobile. Logo and favicon live in `public/brand/` (copied from the site). Icons are inline SVG paths in `src/components/ui.tsx` (no icon library).
 
 ## Gotchas
 

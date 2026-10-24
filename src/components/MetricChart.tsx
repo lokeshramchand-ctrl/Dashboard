@@ -31,7 +31,7 @@ function LineChart({ series, unit, height = 220 }: { series: Series[]; unit: str
   const fmt = (v: number) => (unit === '%' ? `${v.toFixed(v < 10 ? 1 : 0)}%` : v >= 1e9 ? `${(v / 1e9).toFixed(1)}G` : v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(1)}k` : v.toFixed(1));
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * niceMax);
   const xt = [0, 0.25, 0.5, 0.75, 1].map((f) => x0 + f * (x1 - x0));
-  const colors = ['#0a95e8', 'var(--c2)', 'var(--c3)', 'var(--c4)'];
+  const colors = ['var(--blue)', 'var(--green)', 'var(--peri)', 'var(--red)'];
 
   const base = series[0].points;
   const idx = hover == null ? null : Math.max(0, Math.min(base.length - 1, Math.round(((hover - m.l) / (w - m.l - m.r)) * (base.length - 1))));

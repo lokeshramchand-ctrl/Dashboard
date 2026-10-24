@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import type { CSSProperties } from 'react';
 import { api } from '../api';
 import { useQuery } from '../hooks';
 import { Icon, Skeleton } from './ui';
@@ -35,7 +36,7 @@ export function AreaCard({ icon, title, sub, query, color, format }: {
   const line = smooth(pts);
 
   return (
-    <section className="card area-card">
+    <section className="card area-card" style={{ '--ac': color } as CSSProperties}>
       <div className="area-head">
         <span className="area-title"><Icon name={icon} size={18} />{title}</span>
         <span className="area-val">{vals.length ? format(vals[vals.length - 1]) : q.error ? '—' : ''}</span>
@@ -54,7 +55,7 @@ export function AreaCard({ icon, title, sub, query, color, format }: {
               </linearGradient>
             </defs>
             <path d={`${line}L${W},${H}L0,${H}Z`} fill={`url(#${gid})`} />
-            <path d={line} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinecap="round" />
+            <path d={line} pathLength={1} className="draw" fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinecap="round" />
           </svg>
         </div>
       )}
