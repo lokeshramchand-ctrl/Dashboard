@@ -41,6 +41,7 @@ export const cfg = {
   allowedVmids: new Set(ids('ALLOWED_VMIDS')), // empty = every guest on the node
   protectedVmids: new Set(ids('PROTECTED_VMIDS')),
   conflicts: conflicts(),
+  hostPowerEnabled: bool('HOST_POWER_ENABLED', false), // allow POST /api/host/shutdown (powers off the whole Proxmox node)
 
   nginxDir: env('NGINX_SITES_DIR', '/etc/nginx/sites-enabled'),
 

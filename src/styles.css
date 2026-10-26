@@ -465,3 +465,10 @@ form a.btn { text-align: center; justify-content: center; text-decoration: none;
 .boot-row { display: grid; grid-template-columns: 60px 1fr 120px; gap: 14px; padding: 12px 20px; border-bottom: 1px solid var(--border); align-items: center; }
 .boot-row:last-child { border-bottom: 0; }
 @media (max-width: 760px) { .log-row { grid-template-columns: 1fr; gap: 2px; } .boot-row { grid-template-columns: 1fr auto; } .boot-row > :nth-child(2) { grid-column: 1 / -1; order: 3; } }
+
+/* host power kill switch */
+.host-power { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 24px; }
+.host-power-main { display: flex; gap: 16px; align-items: center; min-width: 0; }
+.host-power h3 { margin: 2px 0 4px; }
+.host-power .muted { margin: 0; max-width: 56ch; }
+.modal .input { margin-top: 8px; }

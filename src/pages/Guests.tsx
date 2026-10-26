@@ -128,6 +128,8 @@ export default function Guests() {
         }}
       </Async>
 
+      <HostPower />
+
       {confirm && (
         <Modal title={`${VERB[confirm.action]} ${confirm.g.name}?`} onClose={() => setConfirm(null)} footer={
           <>
@@ -144,6 +146,67 @@ export default function Guests() {
             {confirm.action === 'reboot' && 'The guest will be restarted.'}
             {confirm.action === 'start' && !confirm.warn && 'The guest will be started.'}
           </p>
+        </Modal>
+      )}
+    </>
+  );
+}
+
+function HostPower() {
+  const q = useQuery(api.hostPower, [], 0);
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  if (!q.data?.enabled) return null; // hidden unless the server enables the kill switch
+  const node = q.data.node;
+
+  async function go() {
+    setBusy(true);
+    try {
+      await api.hostShutdown(typed);
+      setOpen(false);
+      setSent(true);
+    } catch (e) {
+      toast.error(`Host shutdown failed — ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <section className="card pad host-power">
+        <div className="host-power-main">
+          <div className="gaming-ic"><Icon name="power" size={22} /></div>
+          <div>
+            <p className="eyebrow">Kill switch · node {node}</p>
+            <h3>{sent ? 'Shutdown in progress' : 'Power off the whole server'}</h3>
+            <p className="muted small">
+              {sent
+                ? 'Proxmox is stopping every guest and then powering the host off. This dashboard will go offline; power it back on at the machine.'
+                : 'Gracefully shuts down all guests, then the Proxmox host itself. The dashboard goes offline with it.'}
+            </p>
+          </div>
+        </div>
+        {sent
+          ? <Badge tone="amber"><Spinner size={11} />Shutting down</Badge>
+          : <button className="btn btn-danger" onClick={() => { setTyped(''); setOpen(true); }}><Icon name="power" size={16} />Shut down server</button>}
+      </section>
+
+      {open && (
+        <Modal title={`Shut down ${node}?`} onClose={() => !busy && setOpen(false)} footer={
+          <>
+            <button className="btn" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
+            {typed === node
+              ? <HoldButton danger onConfirm={go}>{busy ? 'Sending…' : 'Hold to shut down'}</HoldButton>
+              : <button className="btn btn-danger" disabled>Type the node name</button>}
+          </>
+        }>
+          <div className="callout warn"><Icon name="alert" size={16} /><span>Every container and VM stops, including this dashboard. It cannot be started again from here.</span></div>
+          <p className="muted">Type <b>{node}</b> to confirm.</p>
+          <input className="input" autoFocus value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={node} aria-label="Node name" autoComplete="off" />
         </Modal>
       )}
     </>
