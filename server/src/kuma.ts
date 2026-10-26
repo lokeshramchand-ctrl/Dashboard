@@ -3,6 +3,7 @@ import { cfg, kumaConfigured } from './config.js';
 import { col } from './db.js';
 import type { SampleDoc } from './db.js';
 import { HttpError, notConfigured } from './errors.js';
+import { noteMonitors } from './events.js';
 
 type Status = SampleDoc['status'];
 const STATUS: Record<string, Status> = { '0': 'down', '1': 'up', '2': 'pending', '3': 'maintenance' };
@@ -48,6 +49,7 @@ async function scrape(app: FastifyInstance) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const items = parseMetrics(await res.text());
     snapshot = { at: Date.now(), items };
+    noteMonitors(items);
     const now = new Date();
     if (items.length) {
       await col.samples().insertMany(items.map((i) => ({

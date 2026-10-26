@@ -9,6 +9,7 @@ import { RefreshCtx, SearchCtx, ToastProvider, useHash, useToast } from './hooks
 import Guests from './pages/Guests';
 import Grafana from './pages/Grafana';
 import Kuma from './pages/Kuma';
+import Logs from './pages/Logs';
 import Login from './pages/Login';
 import Nginx from './pages/Nginx';
 import Overview from './pages/Overview';
@@ -20,10 +21,11 @@ const NAV: { id: string; label: string; icon: IconName; group: string }[] = [
   { id: 'nginx', label: 'Nginx sites', icon: 'network', group: 'Resources' },
   { id: 'grafana', label: 'Grafana', icon: 'analytics', group: 'Monitoring' },
   { id: 'kuma', label: 'Uptime', icon: 'pulse', group: 'Monitoring' },
+  { id: 'logs', label: 'Logs', icon: 'list', group: 'Monitoring' },
 ];
 const SEARCH_HINT: Record<string, string> = {
   overview: 'Search guests…', guests: 'Search name, vmid or tag…', nginx: 'Search domain, upstream or file…',
-  grafana: 'Search dashboards, folders or tags…', kuma: 'Search monitors…',
+  grafana: 'Search dashboards, folders or tags…', kuma: 'Search monitors…', logs: 'Filter messages…',
 };
 
 export default function App() {
@@ -166,6 +168,7 @@ function Shell({ user, config, onLogout }: { user: string; config: AppConfig; on
         {page === 'nginx' && <Nginx />}
         {page === 'grafana' && <Grafana uid={parts[1]} />}
         {page === 'kuma' && <Kuma statusUrl={config.kumaStatusUrl} />}
+        {page === 'logs' && <Logs />}
         {!NAV.some((n) => n.id === page) && <Overview />}
       </main>
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}

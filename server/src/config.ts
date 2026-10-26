@@ -52,8 +52,24 @@ export const cfg = {
   kumaUrl: trim(env('KUMA_URL')),
   kumaApiKey: env('KUMA_API_KEY'),
   kumaPollMs: Number(env('KUMA_POLL_MS', '60000')),
+
+  journalEnabled: bool('JOURNAL_ENABLED', true), // /api/logs/journal reads the host journal (dashboard user needs the systemd-journal group)
+  eventRetentionDays: Number(env('EVENT_RETENTION_DAYS', '90')),
+
+  keycloak: {
+    issuer: trim(env('KEYCLOAK_ISSUER')), // https://sso.example.com/realms/<realm>
+    clientId: env('KEYCLOAK_CLIENT_ID'),
+    clientSecret: env('KEYCLOAK_CLIENT_SECRET'), // empty = public client (PKCE only)
+    redirectUri: env('KEYCLOAK_REDIRECT_URI'), // https://<dashboard host>/api/auth/sso/callback
+    allowedUsers: env('KEYCLOAK_ALLOWED_USERS').toLowerCase().split(/[\s,]+/).filter(Boolean), // preferred_username or email
+    requiredRole: env('KEYCLOAK_REQUIRED_ROLE'), // realm role or client role
+    label: env('KEYCLOAK_LABEL', 'Keycloak'),
+  },
+
+  frameSrc: env('FRAME_SRC').split(/\s+/).filter(Boolean), // origins the UI may embed (Grafana, Kuma status page)
 };
 
 export const pveConfigured = () => !!(cfg.pveUrl && cfg.pveNode && cfg.pveTokenId && cfg.pveTokenSecret);
 export const grafanaConfigured = () => !!(cfg.grafanaUrl && cfg.grafanaToken);
+export const keycloakConfigured = () => !!(cfg.keycloak.issuer && cfg.keycloak.clientId && cfg.keycloak.redirectUri);
 export const kumaConfigured = () => !!(cfg.kumaUrl && cfg.kumaApiKey);

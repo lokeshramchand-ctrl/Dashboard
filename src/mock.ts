@@ -156,6 +156,7 @@ async function handle(method: string, path: string, body: any): Promise<Response
   if (path === '/auth/logout') { try { sessionStorage.removeItem('mock-auth'); } catch { /* ignore */ } return json({ ok: true }); }
   const user = authed();
   if (!user) return fail(401, 'UNAUTHENTICATED', 'Login required');
+  if (path === '/auth/sso/config') return json({ enabled: false, label: 'Keycloak' });
   if (path === '/auth/me') return json({ username: user });
 
   if (path === '/overview') {
@@ -206,6 +207,31 @@ async function handle(method: string, path: string, body: any): Promise<Response
       since: iso(x.status === 'down' ? 3 * 3600_000 + 12 * 60_000 : 25 * 60_000),
       message: x.status === 'down' ? 'Request timed out after 48000ms (ECONNREFUSED 192.168.1.30:8080)' : x.status === 'pending' ? 'Retrying: HTTP 502 Bad Gateway' : 'Scheduled maintenance window',
     })));
+  }
+  if (path === '/logs/summary') {
+    return json({
+      boots: [
+        { index: 0, bootId: 'a1', first: iso(86400000 * 2), last: iso(0), clean: null, endReason: 'current boot' },
+        { index: -1, bootId: 'b2', first: iso(86400000 * 9), last: iso(86400000 * 2 + 60000), clean: false, endReason: 'log stops with no shutdown sequence: power loss, hard reset, crash or hang' },
+        { index: -2, bootId: 'c3', first: iso(86400000 * 20), last: iso(86400000 * 9 + 90000), clean: true, endReason: 'clean shutdown (Reached target Reboot)' },
+      ], journalError: null, errors24h: 2, lastHeartbeat: iso(12000), pendingEvents: 0, processUptime: 4210,
+    });
+  }
+  if (path.startsWith('/logs/events')) {
+    return json([
+      { id: '1', ts: iso(120000), level: 'error', source: 'monitor', message: 'Legacy Wiki: up → down', data: null },
+      { id: '2', ts: iso(3600000), level: 'error', source: 'db', message: 'MongoDB unreachable: connect ECONNREFUSED 10.10.10.107:27017', data: null },
+      { id: '3', ts: iso(3500000), level: 'info', source: 'db', message: 'MongoDB reachable again', data: null },
+      { id: '4', ts: iso(7200000), level: 'error', source: 'guest', message: 'jellyfin (101) running → stopped (not requested via the dashboard)', data: null },
+      { id: '5', ts: iso(86400000 * 2), level: 'info', source: 'app', message: 'Dashboard started', data: null },
+    ]);
+  }
+  if (path.startsWith('/logs/journal')) {
+    return json([
+      { ts: iso(60000), priority: 3, unit: 'pvestatd.service', message: 'storage \'local-zfs\' is not online' },
+      { ts: iso(90000), priority: 4, unit: 'kernel', message: 'nvme nvme0: I/O 123 QID 4 timeout, aborting' },
+      { ts: iso(120000), priority: 6, unit: 'homelab-dashboard-pm2.service', message: 'App restarted' },
+    ]);
   }
   return fail(404, 'NOT_FOUND', `No route for ${method} /api${path}`);
 }

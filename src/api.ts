@@ -1,6 +1,6 @@
 import type {
   AppConfig, Guest, GuestAction, GrafanaDashboard, GrafanaPanel, KumaIncident, KumaMonitor,
-  NginxSite, Overview, PromResult, Task,
+  JournalLine, LogSummary, NginxSite, Overview, PromResult, SsoConfig, SystemEvent, Task,
 } from './types';
 
 export class ApiError extends Error {
@@ -39,12 +39,19 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
   return data as T;
 }
 
+const qs = (p: Record<string, string | undefined>) => {
+  const u = new URLSearchParams();
+  for (const [k, v] of Object.entries(p)) if (v) u.set(k, v);
+  const s = u.toString();
+  return s ? `?${s}` : '';
+};
 const get = <T,>(p: string) => req<T>('GET', p);
 const post = <T,>(p: string, b?: unknown) => req<T>('POST', p, b ?? {});
 
 export const api = {
   login: (username: string, password: string) => post<unknown>('/auth/login', { username, password }),
   logout: () => post<unknown>('/auth/logout'),
+  ssoConfig: () => get<SsoConfig>('/auth/sso/config'),
   me: () => get<{ username: string }>('/auth/me'),
   overview: () => get<Overview>('/overview'),
   guests: () => get<Guest[]>('/guests'),
@@ -57,6 +64,10 @@ export const api = {
     post<PromResult>('/metrics/query', { query, start, end, step }),
   monitors: () => get<KumaMonitor[]>('/kuma/monitors'),
   incidents: () => get<KumaIncident[]>('/kuma/incidents'),
+  logSummary: () => get<LogSummary>('/logs/summary'),
+  events: (p: { level?: string; source?: string; q?: string }) => get<SystemEvent[]>('/logs/events' + qs({ ...p, limit: '300' })),
+  journal: (p: { priority?: string; unit?: string; since?: string; boot?: string; q?: string; kernel?: string }) =>
+    get<JournalLine[]>('/logs/journal' + qs({ ...p, limit: '300' })),
 };
 
 /** Optional runtime config shipped next to index.html (see API_NOTES.md). */

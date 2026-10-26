@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { api } from '../api';
 import { Logo } from '../components/Brand';
@@ -6,11 +6,30 @@ import { InView, Reveal, RevealWords } from '../components/Reveal';
 import { Icon, Spinner } from '../components/ui';
 import { HeroLiquid } from '../webgl/hero-liquid/HeroLiquid';
 
+const SSO_ERRORS: Record<string, string> = {
+  SSO_DENIED: 'Sign-in was cancelled or refused by Keycloak.',
+  SSO_STATE: 'The sign-in attempt expired. Please try again.',
+  SSO_FAILED: 'Keycloak sign-in could not be verified.',
+  SSO_UNAVAILABLE: 'Keycloak is unreachable right now.',
+  USER_NOT_ALLOWED: 'This Keycloak account is not allowed to use the console.',
+  ROLE_MISSING: 'This Keycloak account lacks the required role.',
+};
+
 export default function Login({ onLogin, demo }: { onLogin: (u: string) => void; demo: boolean }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [sso, setSso] = useState<{ enabled: boolean; label: string }>({ enabled: false, label: '' });
+
+  useEffect(() => {
+    api.ssoConfig().then(setSso).catch(() => { /* password login still works */ });
+    const code = new URLSearchParams(location.search).get('sso_error');
+    if (code) {
+      setError(SSO_ERRORS[code] ?? 'Single sign-on failed');
+      history.replaceState(null, '', location.pathname + location.hash);
+    }
+  }, []);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -43,6 +62,12 @@ export default function Login({ onLogin, demo }: { onLogin: (u: string) => void;
             <label>Username<input className="input" autoFocus autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required /></label>
             <label>Password<input className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
             <button className="btn btn-primary btn-lg" disabled={busy}>{busy ? <Spinner /> : null}Sign in</button>
+            {sso.enabled && (
+              <>
+                <div className="login-or muted small"><span>or</span></div>
+                <a className="btn btn-lg" href="/api/auth/sso/login"><Icon name="lock" size={16} />Sign in with {sso.label}</a>
+              </>
+            )}
             {demo && <p className="muted small demo-hint">Demo mode: any username, password <code>demo</code>.</p>}
           </form>
         </Reveal>

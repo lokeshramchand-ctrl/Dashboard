@@ -9,7 +9,9 @@ import { HttpError } from './errors.js';
 import { registerGrafana } from './grafana.js';
 import { registerGuests } from './guests.js';
 import { registerKuma, startKuma } from './kuma.js';
+import { recordCleanStop, registerLogs, startEvents } from './events.js';
 import { registerNginx } from './nginx.js';
+import { registerOidc } from './oidc.js';
 import { registerOverview } from './overview.js';
 
 const app = Fastify({
@@ -27,10 +29,29 @@ app.setErrorHandler((err: Error & { statusCode?: number; code?: string }, req, r
 
 app.setNotFoundHandler((req, reply) => reply.code(404).send({ error: `No route for ${req.method} ${req.url.split('?')[0]}`, code: 'NOT_FOUND' }));
 
+const csp = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  "font-src 'self'",
+  "connect-src 'self'",
+  `frame-src 'self' ${[cfg.grafanaPublicUrl, ...cfg.frameSrc].filter(Boolean).join(' ')}`,
+  "frame-ancestors 'none'",
+  "base-uri 'none'",
+  "form-action 'self'",
+  "object-src 'none'",
+].join('; ');
+
 app.addHook('onSend', async (_req, reply) => {
   reply.header('X-Content-Type-Options', 'nosniff');
   reply.header('Referrer-Policy', 'same-origin');
-  reply.header('X-Frame-Options', 'SAMEORIGIN');
+  reply.header('X-Frame-Options', 'DENY');
+  reply.header('Content-Security-Policy', csp);
+  reply.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()');
+  reply.header('Cross-Origin-Opener-Policy', 'same-origin');
+  reply.header('Cross-Origin-Resource-Policy', 'same-origin');
+  if (cfg.cookieSecure) reply.header('Strict-Transport-Security', 'max-age=63072000; includeSubDomains');
 });
 app.addHook('onRequest', async (req, reply) => {
   if (req.url.startsWith('/api/')) reply.header('Cache-Control', 'no-store');
@@ -39,6 +60,8 @@ app.addHook('onRequest', async (req, reply) => {
 await connectDb();
 await app.register(cookie);
 registerAuth(app);
+registerOidc(app);
+registerLogs(app);
 registerOverview(app);
 registerGuests(app);
 registerNginx(app);
@@ -46,8 +69,9 @@ registerGrafana(app);
 registerKuma(app);
 if (cfg.serveDist) await app.register(staticFiles, { root: resolve(cfg.serveDist) });
 startKuma(app);
+startEvents(app);
 
-const shutdown = async () => { await app.close(); await closeDb(); process.exit(0); };
+const shutdown = async () => { await recordCleanStop(); await app.close(); await closeDb(); process.exit(0); };
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 

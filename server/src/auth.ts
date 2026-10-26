@@ -1,5 +1,5 @@
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { ObjectId } from 'mongodb';
 import { cfg } from './config.js';
 import { col } from './db.js';
@@ -35,6 +35,19 @@ export function verifyPassword(password: string, stored: string): boolean {
 const DUMMY_HASH = hashPassword(randomBytes(8).toString('hex'));
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 
+export async function createSession(req: FastifyRequest, reply: FastifyReply, userId: ObjectId, username: string) {
+  const token = randomBytes(32).toString('hex');
+  const ttlMs = cfg.sessionTtlHours * 3600_000;
+  await col.sessions().insertOne({
+    tokenHash: sha256(token), userId, username,
+    createdAt: new Date(), expiresAt: new Date(Date.now() + ttlMs),
+    ip: req.ip, userAgent: String(req.headers['user-agent'] ?? '').slice(0, 200),
+  } as never);
+  reply.setCookie(COOKIE, token, {
+    httpOnly: true, sameSite: 'strict', secure: cfg.cookieSecure, path: '/', maxAge: Math.floor(ttlMs / 1000),
+  });
+}
+
 export function registerAuth(app: FastifyInstance) {
   // Everything under /api needs a valid session except login. Also blocks cross-site state changes.
   app.addHook('onRequest', async (req, reply) => {
@@ -51,7 +64,7 @@ export function registerAuth(app: FastifyInstance) {
       }
     }
 
-    if (path === '/api/auth/login') return;
+    if (path === '/api/auth/login' || path.startsWith('/api/auth/sso/')) return;
 
     const token = req.cookies[COOKIE];
     const session = token ? await col.sessions().findOne({ tokenHash: sha256(token), expiresAt: { $gt: new Date() } }) : null;
@@ -88,18 +101,8 @@ export function registerAuth(app: FastifyInstance) {
     }
 
     await col.attempts().deleteOne({ _id: key });
-    const token = randomBytes(32).toString('hex');
-    const ttlMs = cfg.sessionTtlHours * 3600_000;
-    await col.sessions().insertOne({
-      tokenHash: sha256(token), userId: user._id, username: user.username,
-      createdAt: new Date(), expiresAt: new Date(Date.now() + ttlMs),
-      ip: req.ip, userAgent: String(req.headers['user-agent'] ?? '').slice(0, 200),
-    } as never);
     await col.users().updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date() } });
-
-    reply.setCookie(COOKIE, token, {
-      httpOnly: true, sameSite: 'strict', secure: cfg.cookieSecure, path: '/', maxAge: Math.floor(ttlMs / 1000),
-    });
+    await createSession(req, reply, user._id, user.username);
     req.log.info({ username: user.username, ip: req.ip }, 'login');
     return { username: user.username };
   });
