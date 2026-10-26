@@ -65,3 +65,8 @@ LXC guests (101–107, 109, 120), the Windows QEMU gaming VM (vmid 100, conflict
 - `GET /logs/journal?priority=&unit=&since=&boot=&kernel=&q=&limit=` → `[{ts, priority 0..7, unit, message, pid}]`, newest first. Read-only `journalctl` via execFile (no shell), every argument validated. Needs the service user in `systemd-journal`; otherwise 502/503 with `{error, code}`.
 - `GET /logs/summary` → `{boots[{index, bootId, first, last, clean: bool|null, endReason}], journalError, errors24h, lastHeartbeat, pendingEvents, processUptime}`. `clean=false` means that boot's journal ends without a shutdown sequence (power loss, reset, crash, hang).
 - `GET /auth/sso/config` (public) → `{enabled, label}`. `GET /auth/sso/login` redirects to Keycloak (authorization code + PKCE + nonce); `GET /auth/sso/callback` verifies the ID token (RS256 via JWKS, iss/aud/exp/nonce), checks `KEYCLOAK_ALLOWED_USERS` / `KEYCLOAK_REQUIRED_ROLE`, creates the normal session and redirects to `/` (failures go to `/?sso_error=<CODE>`). SSO users are stored as `kc:<username>` in `users`.
+
+## Host power (kill switch)
+
+- `GET /host/power` -> `{enabled, node}`. `enabled` mirrors `HOST_POWER_ENABLED`; the UI hides the kill switch card when false.
+- `POST /host/shutdown` body `{confirm: "<node name>"}` -> `{ok:true}`. Calls Proxmox `POST /nodes/<node>/status command=shutdown` (token needs `Sys.PowerMgmt`). `503 NOT_CONFIGURED` when disabled, `400 BAD_CONFIRM` when the name does not match. Audited as `action: host-shutdown`, `vmid: 0`. There is no power-on endpoint: the dashboard runs on the host.

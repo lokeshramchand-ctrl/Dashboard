@@ -182,6 +182,11 @@ async function handle(method: string, path: string, body: any): Promise<Response
     if ((action === 'shutdown' || action === 'stop' || action === 'reboot') && gu.status !== 'running') return fail(409, 'NOT_RUNNING', `${gu.name} is not running`);
     return json({ taskId: runAction(gu, action) });
   }
+  if (path === '/host/power') return json({ enabled: true, node: 'pve' });
+  if (path === '/host/shutdown') {
+    if (body?.confirm !== 'pve') return fail(400, 'BAD_CONFIRM', 'Confirmation does not match the node name');
+    return json({ ok: true });
+  }
   m = path.match(/^\/tasks\/(.+)$/);
   if (m) {
     const t = tasks[decodeURIComponent(m[1])];
