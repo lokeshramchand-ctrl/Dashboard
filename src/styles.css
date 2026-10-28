@@ -597,3 +597,53 @@ body { font-size: 14px; }
 }
 .topbar .show-sm { display: none; }
 @media (max-width: 900px) { .topbar .show-sm { display: inline-grid; } .crumbs li.cur::before { display: none; } }
+
+/* ---------- diagnostics, logs, GPU, sensors ---------- */
+.log-tools { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 16px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.log-tools .chips { border-bottom: 0; }
+.search.mini { height: 32px; min-width: 220px; font-size: 13px; margin-bottom: 8px; }
+.log-list { max-height: 62vh; overflow-y: auto; font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.jl { display: grid; grid-template-columns: 150px 110px 170px 1fr; gap: 12px; padding: 6px 16px; border-bottom: 1px solid var(--border); align-items: baseline; }
+.jl:last-child { border-bottom: 0; }
+.jl.err { background: color-mix(in srgb, var(--red) 6%, transparent); }
+.jl.warn { background: color-mix(in srgb, var(--peri) 7%, transparent); }
+.jl .msg { white-space: pre-wrap; word-break: break-word; }
+.jl-unit { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jl .badge { font-family: 'Instrument Sans Variable', ui-sans-serif, system-ui, sans-serif; }
+.dt-rec { grid-template-columns: 2.6fr 120px 70px 150px 150px; }
+.rec-msg { display: flex; flex-direction: column; gap: 2px; white-space: normal; }
+.rec-msg small { color: var(--muted); font-size: 12px; word-break: break-word; }
+.tiles-6 { grid-template-columns: repeat(6, 1fr); }
+.tiles-6 .tile { min-height: 120px; }
+.chipline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.verdict.bad { box-shadow: inset 3px 0 0 var(--red), var(--lift); }
+.verdict.good { box-shadow: inset 3px 0 0 var(--green), var(--lift); }
+.verdict-reason { font-weight: 600; margin-bottom: 12px; }
+.verdict-line { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.verdict-line code { white-space: pre-wrap; word-break: break-word; font-size: 12px; padding: 8px 10px; display: block; width: 100%; }
+.timeline { list-style: none; margin: 0; padding: 0; position: relative; }
+.timeline li { display: flex; gap: 12px; padding: 6px 0 10px; position: relative; }
+.timeline li::before { content: ''; position: absolute; left: 4px; top: 18px; bottom: -6px; width: 1px; background: var(--border); }
+.timeline li:last-child::before { display: none; }
+.tl-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; margin-top: 5px; }
+.tl-error .tl-dot { background: var(--red); } .tl-warn .tl-dot { background: var(--peri); }
+.gpu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); gap: 20px; }
+.gpu-card { display: flex; flex-direction: column; gap: 16px; }
+.gpu-top { display: flex; gap: 14px; align-items: flex-start; }
+.gpu-ic { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; flex: none; background: var(--gray-soft); color: var(--muted); }
+.gpu-ic.passthrough { background: var(--blue-soft); color: var(--blue-t); } .gpu-ic.host { background: var(--green-soft); color: var(--green-t); }
+.gpu-name { font-size: 18px; font-weight: 600; letter-spacing: -.02em; }
+.gpu-tel { padding-top: 14px; border-top: 1px solid var(--border); }
+.tel-row { display: flex; gap: 28px; flex-wrap: wrap; }
+.tel-row span { display: flex; flex-direction: column; } .tel-row b { font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
+.callout.ok { background: var(--green-soft); border-color: color-mix(in srgb, var(--green) 35%, transparent); color: var(--green-t); }
+.sensor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+@media (max-width: 1180px) { .tiles-6 { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 900px) {
+  .tiles-6 { grid-template-columns: repeat(2, 1fr); }
+  .jl { grid-template-columns: 1fr auto; gap: 4px 10px; padding: 8px 12px; }
+  .jl > .jl-unit { display: none; } .jl .msg { grid-column: 1 / -1; }
+  .gpu-grid { grid-template-columns: 1fr; }
+  .search.mini { min-width: 0; width: 100%; }
+}
+.timeline .grow, .card, .jl .msg, .rec-msg small { overflow-wrap: anywhere; }

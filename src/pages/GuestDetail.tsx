@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { api } from '../api';
 import { Async, Badge, Card, CardHead, Chips, EmptyState, HoldButton, Icon, Menu, Meter, Modal, PageHeader, Spinner } from '../components/ui';
 import type { IconName } from '../components/ui';
-import { KV, RrdCard, TaskTable, TimeframePicker } from '../components/Pve';
+import { kindBadge, KV, tidy, LogList, RecurringTable, RrdCard, SINCE, TaskTable, TimeframePicker } from '../components/Pve';
 import { fmtBytes, fmtPct, fmtUptime, sleep } from '../format';
 import { useGuestEvents, useQuery, useToast } from '../hooks';
 import type { ConfigRow, GuestAction, GuestStatusDetail, Timeframe } from '../types';
 
-type Tab = 'summary' | 'hardware' | 'options' | 'snapshots' | 'tasks';
+type Tab = 'summary' | 'hardware' | 'options' | 'snapshots' | 'tasks' | 'logs';
 const VERB: Record<GuestAction, string> = { start: 'Start', shutdown: 'Shutdown', stop: 'Stop', reboot: 'Reboot', reset: 'Reset', suspend: 'Pause', resume: 'Resume' };
 const EXPLAIN: Partial<Record<GuestAction, string>> = {
   shutdown: 'The guest will be asked to shut down gracefully.',
@@ -20,7 +20,7 @@ const EXPLAIN: Partial<Record<GuestAction, string>> = {
 const HW = /^(memory|balloon|cores|sockets|cpu|cpulimit|cpuunits|vcpus|numa|bios|machine|scsihw|swap|rootfs|mp\d+|(ide|sata|scsi|virtio|efidisk|tpmstate|unused)\d+|net\d+|hostpci\d+|usb\d+|serial\d+|audio\d+|vga|rng\d+|arch)$/;
 
 export default function GuestDetail({ vmid, tab: initial }: { vmid: number; tab?: string }) {
-  const [tab, setTab] = useState<Tab>((['summary', 'hardware', 'options', 'snapshots', 'tasks'].includes(initial ?? '') ? initial : 'summary') as Tab);
+  const [tab, setTab] = useState<Tab>((['summary', 'hardware', 'options', 'snapshots', 'tasks', 'logs'].includes(initial ?? '') ? initial : 'summary') as Tab);
   const st = useQuery(() => api.guestStatus(vmid), [vmid], 4000);
   const cfg = useQuery(() => api.guestConfig(vmid), [vmid], 30_000);
   const toast = useToast();
@@ -71,7 +71,7 @@ export default function GuestDetail({ vmid, tab: initial }: { vmid: number; tab?
       )}
       <Chips value={tab} onChange={go} options={[
         { id: 'summary', label: 'Summary' }, { id: 'hardware', label: g?.type === 'lxc' ? 'Resources' : 'Hardware' }, { id: 'options', label: 'Options' },
-        { id: 'snapshots', label: 'Snapshots' }, { id: 'tasks', label: 'Task history' },
+        { id: 'snapshots', label: 'Snapshots' }, { id: 'tasks', label: 'Task history' }, { id: 'logs', label: 'Logs & failures' },
       ]} />
       {st.data === undefined && st.error ? (
         <Card><EmptyState icon="alert" title="Couldn't load this guest" hint={st.error.message} action={<a className="btn" href="#/guests">Back to guests</a>} /></Card>
@@ -85,6 +85,7 @@ export default function GuestDetail({ vmid, tab: initial }: { vmid: number; tab?
           )}
           {tab === 'snapshots' && <Snapshots vmid={vmid} />}
           {tab === 'tasks' && <GuestTasks vmid={vmid} />}
+          {tab === 'logs' && <GuestLogsTab vmid={vmid} />}
         </>
       )}
 
@@ -237,4 +238,59 @@ function Snapshots({ vmid }: { vmid: number }) {
 function GuestTasks({ vmid }: { vmid: number }) {
   const q = useQuery(() => api.tasks({ vmid, limit: 50 }), [vmid], 10_000);
   return <TaskTable q={q} compact />;
+}
+
+function GuestLogsTab({ vmid }: { vmid: number }) {
+  const [since, setSince] = useState('7d');
+  const q = useQuery(() => api.guestLogs(vmid, since), [vmid, since], 30_000);
+  const tasks = { ...q, data: q.data?.failedTasks, mutate: () => {} };
+  return (
+    <>
+      <div className="toolbar"><span className="section-label grow">Failure analysis</span><Chips value={since} onChange={setSince} options={SINCE} /></div>
+      <Async q={q} rows={3} h={90}>
+        {(d) => (
+          <>
+            <div className="grid-3">
+              <Card className={`verdict ${d.lastFailure ? 'bad' : 'good'}`}>
+                <CardHead title={d.lastFailure ? 'Last failure' : 'No failures'} sub={d.lastFailure ? new Date(d.lastFailure.ts).toLocaleString() : `Nothing failed in the last ${since}`} />
+                {d.lastFailure ? (
+                  <>
+                    <p className="verdict-reason">{d.reason}</p>
+                    <div className="verdict-line">{kindBadge(d.lastFailure.kind, d.lastFailure.level)}<code>{tidy(d.lastFailure.message)}</code></div>
+                  </>
+                ) : <p className="muted">The journal and task log show no errors for this guest.</p>}
+              </Card>
+              <Card>
+                <CardHead title="Log summary" sub={`Last ${since}`} />
+                <KV rows={[
+                  ['Errors', <b className={d.counts.error ? 'err-t' : ''}>{d.counts.error}</b>],
+                  ['Warnings', d.counts.warn], ['Info', d.counts.info],
+                  ['Failed tasks', <b className={d.failedTasks.length ? 'err-t' : ''}>{d.failedTasks.length}</b>],
+                  ...(d.passthrough.length ? [['Passthrough', d.passthrough.map((a) => <div key={a} className="mono small">{a}</div>)] as [string, JSX.Element[]]] : []),
+                ]} />
+                {d.passthrough.length > 0 && <a className="link small" href="#/gpu">GPU & passthrough details</a>}
+              </Card>
+              <Card>
+                <CardHead title="Recent lifecycle" sub="Starts, stops and failures" />
+                {d.timeline.length === 0 ? <EmptyState icon="clock" title="No lifecycle events" /> : (
+                  <ul className="timeline">
+                    {d.timeline.slice(0, 10).map((l, i) => (
+                      <li key={i} className={`tl-${l.level}`}>
+                        <span className="tl-dot" />
+                        <div className="grow"><span className="small">{tidy(l.message)}</span><small className="muted block">{new Date(l.ts).toLocaleString()}</small></div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Card>
+            </div>
+            {d.recurring.length > 0 && <><span className="section-label">Recurring problems</span><RecurringTable rows={d.recurring} /></>}
+            {d.failedTasks.length > 0 && <><span className="section-label">Failed tasks</span><TaskTable q={tasks} compact /></>}
+            <span className="section-label">Journal for this guest</span>
+            <LogList lines={d.lines} empty="Matches the guest's scope, unit, task ids and passthrough devices." />
+          </>
+        )}
+      </Async>
+    </>
+  );
 }

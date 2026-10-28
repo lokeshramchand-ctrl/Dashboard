@@ -12,6 +12,8 @@ const LABEL: Record<string, [string, string]> = {
   host: ['Proxmox host', 'API unreachable, host reboot, stopped PVE services'],
   resources: ['Resource pressure', 'CPU, RAM or root disk above threshold for 5 minutes'],
   tasks: ['Failed tasks', 'Any Proxmox task ends with an error'],
+  gpu: ['GPU & passthrough', 'vfio, amdgpu or NVIDIA driver faults in the kernel log'],
+  hardware: ['Hardware errors', 'PCIe AER, machine checks, disk I/O errors, process crashes'],
   disks: ['Disk health', 'S.M.A.R.T. failure or SSD wearout under 10%'],
   services: ['System services', 'An enabled PVE service is not running'],
   db: ['MongoDB', 'Database connection lost or restored'],

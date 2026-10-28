@@ -6,6 +6,8 @@ import type { Command } from './components/CommandPalette';
 import { Icon, Spinner } from './components/ui';
 import type { IconName } from './components/ui';
 import { RefreshCtx, SearchCtx, ToastProvider, useHash, useQuery, useToast } from './hooks';
+import Diagnostics from './pages/Diagnostics';
+import Gpu from './pages/Gpu';
 import GuestDetail from './pages/GuestDetail';
 import Node from './pages/Node';
 import Notifications from './pages/Notifications';
@@ -23,17 +25,19 @@ const NAV: { id: string; label: string; icon: IconName; group: string }[] = [
   { id: 'overview', label: 'Overview', icon: 'grid', group: 'Workspace' },
   { id: 'node', label: 'Node', icon: 'node', group: 'Datacenter' },
   { id: 'guests', label: 'Guests', icon: 'server', group: 'Datacenter' },
+  { id: 'gpu', label: 'GPU & passthrough', icon: 'cpu', group: 'Datacenter' },
   { id: 'tasks', label: 'Task log', icon: 'tasks', group: 'Datacenter' },
   { id: 'nginx', label: 'Nginx sites', icon: 'globe', group: 'Services' },
   { id: 'kuma', label: 'Uptime', icon: 'pulse', group: 'Monitoring' },
   { id: 'grafana', label: 'Grafana', icon: 'analytics', group: 'Monitoring' },
+  { id: 'diagnostics', label: 'Diagnostics', icon: 'alert', group: 'Monitoring' },
   { id: 'logs', label: 'Logs', icon: 'list', group: 'Monitoring' },
   { id: 'notifications', label: 'Notifications', icon: 'bell', group: 'Settings' },
 ];
 const GROUPS = [...new Set(NAV.map((n) => n.group))];
 const SEARCH_HINT: Record<string, string> = {
   overview: 'Search guests…', node: 'Filter interfaces…', guests: 'Search name, vmid or tag…', tasks: 'Filter tasks…', nginx: 'Search domain, upstream or file…',
-  grafana: 'Search dashboards, folders or tags…', kuma: 'Search monitors…', logs: 'Filter messages…', notifications: 'Search…',
+  grafana: 'Search dashboards, folders or tags…', kuma: 'Search monitors…', logs: 'Filter messages…', gpu: 'Search…', diagnostics: 'Search…', notifications: 'Search…',
 };
 
 export default function App() {
@@ -180,11 +184,13 @@ function Shell({ user, config, onLogout }: { user: string; config: AppConfig; on
             </div>
           </header>
 
-          <main className="content" key={page + (parts[1] ?? '')}>
+          <main className="content" key={parts.join('/')}>
             {page === 'overview' && <Overview />}
             {page === 'node' && <Node tab={parts[1]} />}
             {page === 'guests' && (parts[1] && /^\d+$/.test(parts[1]) ? <GuestDetail vmid={Number(parts[1])} tab={parts[2]} /> : <Guests />)}
             {page === 'tasks' && <Tasks />}
+            {page === 'gpu' && <Gpu />}
+            {page === 'diagnostics' && <Diagnostics />}
             {page === 'nginx' && <Nginx />}
             {page === 'grafana' && <Grafana uid={parts[1]} />}
             {page === 'kuma' && <Kuma statusUrl={config.kumaStatusUrl} />}

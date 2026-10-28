@@ -4,7 +4,7 @@ import { api } from '../api';
 import { timeAgo } from '../format';
 import { useQuery } from '../hooks';
 import type { Query } from '../hooks';
-import type { PveTask, RrdPoint, Timeframe } from '../types';
+import type { LogKind, LogLine, PveTask, Recurring, RrdPoint, Timeframe } from '../types';
 import { LineChart } from './MetricChart';
 import { Async, Badge, Card, CardHead, Chips, EmptyState, Icon, Modal, Skeleton, Spinner } from './ui';
 import type { Tone } from './ui';
@@ -110,5 +110,64 @@ export function TaskLogModal({ task, onClose }: { task: PveTask; onClose: () => 
       )}
       <code className="upid">{task.upid}</code>
     </Modal>
+  );
+}
+
+export const SINCE: { id: string; label: string }[] = [{ id: '24h', label: '24 hours' }, { id: '7d', label: '7 days' }, { id: '30d', label: '30 days' }];
+const KIND_LABEL: Record<LogKind, string> = {
+  start: 'start', stop: 'stop', lifecycle: 'lifecycle', 'start-failed': 'start failed', crash: 'crash', oom: 'out of memory',
+  gpu: 'gpu', agent: 'agent', hardware: 'hardware', error: 'error', info: 'info',
+};
+const LEVEL_TONE: Record<LogLine['level'], Tone> = { error: 'red', warn: 'amber', info: 'gray' };
+export const kindBadge = (k: LogKind, lv: LogLine['level']) => <Badge tone={lv === 'info' ? (k === 'start' ? 'green' : k === 'gpu' ? 'blue' : 'gray') : LEVEL_TONE[lv]}>{KIND_LABEL[k]}</Badge>;
+/** Shortens Proxmox task ids (UPID:node:pid:pstart:start:type:id:user:) to "‹task type›" for reading. */
+export const tidy = (msg: string) => msg.replace(/UPID:[\w.-]+:[0-9A-Fa-f]+:[0-9A-Fa-f]+:[0-9A-Fa-f]+:([\w-]+):[\w.:-]*?:[\w@.!-]+:/g, '‹task $1›');
+const fmtTs = (iso: string) => new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+/** Journal lines with level filter and text search. */
+export function LogList({ lines, empty = 'No log lines in this range.' }: { lines: LogLine[]; empty?: string }) {
+  const [lv, setLv] = useState<'problems' | 'all'>(lines.some((l) => l.level !== 'info') ? 'problems' : 'all');
+  const [q, setQ] = useState('');
+  const n = q.trim().toLowerCase();
+  const rows = lines.filter((l) => (lv === 'all' || l.level !== 'info') && (!n || `${l.unit} ${l.message} ${l.kind}`.toLowerCase().includes(n)));
+  return (
+    <div className="card table">
+      <div className="log-tools">
+        <Chips value={lv} onChange={setLv} options={[{ id: 'problems', label: 'Problems', count: lines.filter((l) => l.level !== 'info').length }, { id: 'all', label: 'All lines', count: lines.length }]} />
+        <label className="search mini"><Icon name="search" size={14} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter lines…" aria-label="Filter log lines" /></label>
+      </div>
+      {rows.length === 0 ? <EmptyState icon="check" title={lv === 'problems' && !n ? 'No problems found' : 'Nothing matches'} hint={empty} /> : (
+        <div className="log-list">
+          {rows.slice(0, 400).map((l, i) => (
+            <div key={i} className={`jl ${l.level === 'error' ? 'err' : l.level === 'warn' ? 'warn' : ''}`}>
+              <span className="muted">{fmtTs(l.ts)}</span>
+              <span>{kindBadge(l.kind, l.level)}</span>
+              <span className="muted jl-unit" title={l.unit}>{l.unit}</span>
+              <span className="msg" title={l.message}>{tidy(l.message)}</span>
+            </div>
+          ))}
+          {rows.length > 400 && <p className="muted small pad">Showing the newest 400 of {rows.length} lines.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Repeated problems collapsed into one row each. */
+export function RecurringTable({ rows }: { rows: Recurring[] }) {
+  if (!rows.length) return <Card><EmptyState icon="check" title="No recurring problems" hint="Nothing failed more than once in this range." /></Card>;
+  return (
+    <div className="card table">
+      <div className="dt-row dt-rec g-head"><span>Problem</span><span>Type</span><span>Count</span><span>First seen</span><span>Last seen</span></div>
+      {rows.map((r, i) => (
+        <div key={i} className="dt-row dt-rec">
+          <span className="rec-msg"><b>{r.unit || 'system'}</b><small className="mono">{tidy(r.sample)}</small></span>
+          <span>{kindBadge(r.kind, r.level)}</span>
+          <span><b className={r.count >= 10 ? 'err-t' : ''}>{r.count}×</b></span>
+          <span className="muted">{fmtTs(r.first)}</span>
+          <span className="muted">{fmtTs(r.last)}</span>
+        </div>
+      ))}
+    </div>
   );
 }
