@@ -40,6 +40,22 @@ const SEARCH_HINT: Record<string, string> = {
   grafana: 'Search dashboards, folders or tags…', kuma: 'Search monitors…', logs: 'Filter messages…', gpu: 'Search…', diagnostics: 'Search…', notifications: 'Search…',
 };
 
+const AVATAR_COUNT = 12;
+/** Stable per-user avatar: a hash of the username picks one of the bundled pictures, so a
+ *  given user always gets the same random-looking display picture across sessions. */
+function avatarFor(user: string): string {
+  let h = 0;
+  for (let i = 0; i < user.length; i++) h = (h * 31 + user.charCodeAt(i)) >>> 0;
+  return `avatars/a${(h % AVATAR_COUNT) + 1}.svg`;
+}
+
+function Avatar({ user }: { user: string }) {
+  const [broken, setBroken] = useState(false);
+  const initials = user.slice(0, 2).toUpperCase();
+  if (broken) return <span className="avatar">{initials}</span>;
+  return <img className="avatar avatar-img" src={avatarFor(user)} alt="" aria-hidden="true" onError={() => setBroken(true)} />;
+}
+
 export default function App() {
   return (
     <ToastProvider>
@@ -177,7 +193,7 @@ function Shell({ user, config, onLogout }: { user: string; config: AppConfig; on
                 <Icon name="bell" size={17} />{alerts > 0 && <i className="bell-dot">{alerts}</i>}
               </a>
               <div className="me">
-                <span className="avatar">{user.slice(0, 2).toUpperCase()}</span>
+                <Avatar user={user} />
                 <div className="hide-sm"><b>{user}</b><small>Administrator</small></div>
                 <button className="icon-btn" onClick={logout} aria-label="Sign out" title="Sign out"><Icon name="logout" size={17} /></button>
               </div>
