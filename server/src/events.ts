@@ -6,6 +6,7 @@ import { col, dbHealth } from './db.js';
 import type { EventDoc } from './db.js';
 import { HttpError } from './errors.js';
 import { listGuests } from './guests.js';
+import { alertFromEvent } from './notify.js';
 import { pve } from './proxmox.js';
 
 const run = promisify(execFile);
@@ -33,6 +34,7 @@ export function logEvent(level: Level, source: Source, message: string, data?: R
   if (pending.length >= 500) pending.shift();
   pending.push({ ts, level, source, message, data, expireAt: new Date(ts.getTime() + cfg.eventRetentionDays * DAY) });
   void flush();
+  alertFromEvent(level, source, message);
 }
 
 const setState = (id: string, value: Record<string, unknown>) =>

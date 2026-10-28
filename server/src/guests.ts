@@ -3,14 +3,23 @@ import type { FastifyInstance } from 'fastify';
 import { cfg } from './config.js';
 import { col } from './db.js';
 import { HttpError } from './errors.js';
+import { parseTimeframe, rrdRows, UPID } from './node.js';
 import { pve } from './proxmox.js';
 
 export interface Guest {
   vmid: number; name: string; type: 'lxc' | 'qemu'; status: 'running' | 'stopped' | 'paused';
   cpu: number; memUsed: number; memMax: number; uptime: number; protected: boolean; tags: string[]; conflicts: number[];
 }
-type Action = 'start' | 'shutdown' | 'stop' | 'reboot';
-const ACTIONS: Action[] = ['start', 'shutdown', 'stop', 'reboot'];
+type Action = 'start' | 'shutdown' | 'stop' | 'reboot' | 'reset' | 'suspend' | 'resume';
+const ACTIONS: Action[] = ['start', 'shutdown', 'stop', 'reboot', 'reset', 'suspend', 'resume'];
+const QEMU_ONLY: Action[] = ['reset', 'suspend', 'resume'];
+// Which current status each action is valid from (paused = a suspended QEMU guest).
+const FROM: Record<Action, Guest['status'][]> = {
+  start: ['stopped'], shutdown: ['running'], reboot: ['running'], reset: ['running'], suspend: ['running'],
+  resume: ['paused'], stop: ['running', 'paused'],
+};
+// Config keys whose values are secrets even in an admin view.
+const SECRET_KEYS = new Set(['cipassword']);
 
 function map(type: 'lxc' | 'qemu', r: any): Guest {
   const vmid = Number(r.vmid);
@@ -38,17 +47,58 @@ const parseVmid = (v: string) => {
   return n;
 };
 
-// UPID:node:pid:pstart:starttime:type:id:user:  — validated before it ever reaches a URL path.
-const UPID = /^UPID:[\w.-]+:[0-9A-Fa-f]+:[0-9A-Fa-f]+:[0-9A-Fa-f]+:[\w-]+:[\w.:-]*:[\w@.!-]+:$/;
+async function findGuest(v: string): Promise<Guest> {
+  const vmid = parseVmid(v);
+  const g = (await listGuests()).find((x) => x.vmid === vmid);
+  if (!g) throw new HttpError(404, 'NOT_FOUND', `Guest ${vmid} does not exist or is not allowed`);
+  return g;
+}
+const guestPath = (g: Guest) => `/nodes/${encodeURIComponent(cfg.pveNode)}/${g.type}/${g.vmid}`;
+const num = (v: unknown) => (v == null || v === '' ? 0 : Number(v));
 
 export function registerGuests(app: FastifyInstance) {
   app.get('/api/guests', () => listGuests());
 
-  app.get<{ Params: { vmid: string } }>('/api/guests/:vmid', async (req) => {
-    const vmid = parseVmid(req.params.vmid);
-    const g = (await listGuests()).find((x) => x.vmid === vmid);
-    if (!g) throw new HttpError(404, 'NOT_FOUND', `Guest ${vmid} does not exist or is not allowed`);
-    return g;
+  app.get<{ Params: { vmid: string } }>('/api/guests/:vmid', (req) => findGuest(req.params.vmid));
+
+  app.get<{ Params: { vmid: string } }>('/api/guests/:vmid/status', async (req) => {
+    const g = await findGuest(req.params.vmid);
+    const s = await pve<any>('GET', `${guestPath(g)}/status/current`);
+    return {
+      ...g,
+      cpus: num(s.cpus), diskUsed: num(s.disk), diskMax: num(s.maxdisk), swapUsed: num(s.swap), swapMax: num(s.maxswap),
+      netIn: num(s.netin), netOut: num(s.netout), diskRead: num(s.diskread), diskWrite: num(s.diskwrite),
+      pid: s.pid ? num(s.pid) : null, lock: s.lock ? String(s.lock) : null, haManaged: !!s.ha?.managed,
+      agent: g.type === 'qemu' ? !!s.agent : null, qmpStatus: s.qmpstatus ? String(s.qmpstatus) : null,
+      runningMachine: s['running-machine'] ? String(s['running-machine']) : null, runningQemu: s['running-qemu'] ? String(s['running-qemu']) : null,
+    };
+  });
+
+  // /pending returns the current config plus any change that applies on the next restart.
+  app.get<{ Params: { vmid: string } }>('/api/guests/:vmid/config', async (req) => {
+    const g = await findGuest(req.params.vmid);
+    const rows = await pve<{ key: string; value?: unknown; pending?: unknown; delete?: number }[]>('GET', `${guestPath(g)}/pending`);
+    const show = (k: string, v: unknown) => (v === undefined ? null : SECRET_KEYS.has(k) ? '••••••' : String(v));
+    return rows
+      .filter((r) => r.key !== 'digest')
+      .map((r) => ({ key: r.key, value: show(r.key, r.value), pending: show(r.key, r.pending), delete: !!r.delete }))
+      .sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }));
+  });
+
+  app.get<{ Params: { vmid: string }; Querystring: { timeframe?: string } }>('/api/guests/:vmid/rrd', async (req) => {
+    const tf = parseTimeframe(req.query.timeframe);
+    const g = await findGuest(req.params.vmid);
+    const rows = await pve<any[]>('GET', `${guestPath(g)}/rrddata?timeframe=${tf}&cf=AVERAGE`);
+    return rrdRows(rows, ['cpu', 'maxcpu', 'mem', 'maxmem', 'disk', 'maxdisk', 'netin', 'netout', 'diskread', 'diskwrite']);
+  });
+
+  app.get<{ Params: { vmid: string } }>('/api/guests/:vmid/snapshots', async (req) => {
+    const g = await findGuest(req.params.vmid);
+    const rows = await pve<any[]>('GET', `${guestPath(g)}/snapshot`);
+    return rows.map((r) => ({
+      name: String(r.name), parent: r.parent ? String(r.parent) : null, description: String(r.description ?? '').trim(),
+      time: r.snaptime ? num(r.snaptime) : null, vmstate: !!r.vmstate, current: r.name === 'current',
+    }));
   });
 
   app.post<{ Params: { vmid: string; action: string } }>('/api/guests/:vmid/:action', async (req) => {
@@ -66,8 +116,12 @@ export function registerGuests(app: FastifyInstance) {
     const g = (await listGuests()).find((x) => x.vmid === vmid);
     if (!g) return refuse(404, 'NOT_FOUND', `Guest ${vmid} does not exist or is not allowed`);
     if (g.protected) return refuse(403, 'PROTECTED', `Guest ${vmid} (${g.name}) is protected`, g.name);
-    if (action === 'start' && g.status === 'running') return refuse(409, 'ALREADY_RUNNING', `${g.name} is already running`, g.name);
-    if (action !== 'start' && g.status !== 'running') return refuse(409, 'NOT_RUNNING', `${g.name} is not running`, g.name);
+    if (QEMU_ONLY.includes(action) && g.type !== 'qemu') return refuse(400, 'UNSUPPORTED', `${action} is only available for virtual machines`, g.name);
+    if (!FROM[action].includes(g.status)) {
+      if (action === 'start') return refuse(409, g.status === 'paused' ? 'PAUSED' : 'ALREADY_RUNNING', g.status === 'paused' ? `${g.name} is suspended; resume it instead` : `${g.name} is already running`, g.name);
+      if (action === 'resume') return refuse(409, 'NOT_PAUSED', `${g.name} is not suspended`, g.name);
+      return refuse(409, 'NOT_RUNNING', `${g.name} is not running`, g.name);
+    }
 
     try {
       const taskId = await pve<string>('POST', `/nodes/${encodeURIComponent(cfg.pveNode)}/${g.type}/${vmid}/status/${action}`);
