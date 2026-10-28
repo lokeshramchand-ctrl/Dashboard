@@ -716,3 +716,9 @@ body { font-size: 14px; }
 .win-disks { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
 .live-toggle { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted, inherit); cursor: pointer; }
 @media (max-width: 760px) { .win-run { grid-template-columns: 1fr 1fr; } .win-run.g-head { display: none; } }
+/* host power kill switch */
+.host-power { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 24px; }
+.host-power-main { display: flex; gap: 16px; align-items: center; min-width: 0; }
+.host-power h3 { margin: 2px 0 4px; }
+.host-power .muted { margin: 0; max-width: 56ch; }
+.modal .input { margin-top: 8px; }
