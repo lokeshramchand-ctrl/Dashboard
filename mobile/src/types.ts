@@ -115,3 +115,18 @@ export interface NotifyInfo {
   settings: NotifySettings; categories: string[];
   sent: { ts: string; title: string; message: string; priority: number; category: string; ok: boolean; error?: string }[];
 }
+export type LogKind = 'start' | 'stop' | 'lifecycle' | 'start-failed' | 'crash' | 'oom' | 'gpu' | 'agent' | 'hardware' | 'error' | 'info';
+export interface LogLine { ts: string; priority: number; unit: string; message: string; kind: LogKind; level: 'info' | 'warn' | 'error' }
+export interface Recurring { unit: string; kind: LogKind; level: 'info' | 'warn' | 'error'; sample: string; count: number; first: string; last: string }
+export interface GuestLogs {
+  vmid: number; since: string; type: 'lxc' | 'qemu'; passthrough: string[]; counts: Record<'error' | 'warn' | 'info', number>;
+  lastFailure: LogLine | null; reason: string | null; failedTasks: PveTask[]; timeline: LogLine[]; recurring: Recurring[]; lines: LogLine[];
+}
+export interface Gpu {
+  addr: string; vendor: string; name: string; driver: string | null; mode: 'passthrough' | 'host' | 'unbound'; iommuGroup: string | null;
+  assignedTo: { vmid: number; name: string; status: GuestStatus }[]; inUseBy: { vmid: number; name: string; status: GuestStatus } | null;
+  link: { speed: string | null; width: string | null; maxSpeed: string | null; maxWidth: string | null };
+  telemetry: { busyPercent: number | null; vramUsed: number | null; vramTotal: number | null; tempC: number | null; powerW: number | null; clockMHz: number | null } | null;
+}
+export interface GpuInfo { iommu: { enabled: boolean; cmdline: string[] }; gpus: Gpu[] }
+export interface Diagnostics { since: string; failedTasks: PveTask[]; byKind: Record<string, number>; recurring: Recurring[]; lines: LogLine[] }
