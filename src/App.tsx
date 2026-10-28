@@ -5,7 +5,11 @@ import { CommandPalette } from './components/CommandPalette';
 import type { Command } from './components/CommandPalette';
 import { Icon, Spinner } from './components/ui';
 import type { IconName } from './components/ui';
-import { RefreshCtx, SearchCtx, ToastProvider, useHash, useToast } from './hooks';
+import { RefreshCtx, SearchCtx, ToastProvider, useHash, useQuery, useToast } from './hooks';
+import GuestDetail from './pages/GuestDetail';
+import Node from './pages/Node';
+import Notifications from './pages/Notifications';
+import Tasks from './pages/Tasks';
 import Guests from './pages/Guests';
 import Grafana from './pages/Grafana';
 import Kuma from './pages/Kuma';
@@ -16,16 +20,20 @@ import Overview from './pages/Overview';
 import type { AppConfig, Guest } from './types';
 
 const NAV: { id: string; label: string; icon: IconName; group: string }[] = [
-  { id: 'overview', label: 'Overview', icon: 'monitor', group: 'Workspace' },
-  { id: 'guests', label: 'Guests', icon: 'server', group: 'Resources' },
-  { id: 'nginx', label: 'Nginx sites', icon: 'network', group: 'Resources' },
-  { id: 'grafana', label: 'Grafana', icon: 'analytics', group: 'Monitoring' },
+  { id: 'overview', label: 'Overview', icon: 'grid', group: 'Workspace' },
+  { id: 'node', label: 'Node', icon: 'node', group: 'Datacenter' },
+  { id: 'guests', label: 'Guests', icon: 'server', group: 'Datacenter' },
+  { id: 'tasks', label: 'Task log', icon: 'tasks', group: 'Datacenter' },
+  { id: 'nginx', label: 'Nginx sites', icon: 'globe', group: 'Services' },
   { id: 'kuma', label: 'Uptime', icon: 'pulse', group: 'Monitoring' },
+  { id: 'grafana', label: 'Grafana', icon: 'analytics', group: 'Monitoring' },
   { id: 'logs', label: 'Logs', icon: 'list', group: 'Monitoring' },
+  { id: 'notifications', label: 'Notifications', icon: 'bell', group: 'Settings' },
 ];
+const GROUPS = [...new Set(NAV.map((n) => n.group))];
 const SEARCH_HINT: Record<string, string> = {
-  overview: 'Search guests…', guests: 'Search name, vmid or tag…', nginx: 'Search domain, upstream or file…',
-  grafana: 'Search dashboards, folders or tags…', kuma: 'Search monitors…', logs: 'Filter messages…',
+  overview: 'Search guests…', node: 'Filter interfaces…', guests: 'Search name, vmid or tag…', tasks: 'Filter tasks…', nginx: 'Search domain, upstream or file…',
+  grafana: 'Search dashboards, folders or tags…', kuma: 'Search monitors…', logs: 'Filter messages…', notifications: 'Search…',
 };
 
 export default function App() {
@@ -107,70 +115,85 @@ function Shell({ user, config, onLogout }: { user: string; config: AppConfig; on
       { id: 'act-refresh', label: 'Refresh data', group: 'Actions', icon: 'refresh', run: bump },
       { id: 'act-theme', label: theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme', group: 'Actions', icon: theme === 'dark' ? 'sun' : 'moon', run: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')) },
       { id: 'act-logout', label: 'Sign out', group: 'Actions', icon: 'logout', run: logout },
-      ...guests.map((g) => ({ id: `guest-${g.vmid}`, label: g.name, hint: `${g.type} ${g.vmid} · ${g.status}`, group: 'Guests', icon: 'server' as const, run: go('guests', g.name) })),
+      ...guests.map((g) => ({ id: `guest-${g.vmid}`, label: g.name, hint: `${g.type} ${g.vmid} · ${g.status}`, group: 'Guests', icon: 'server' as const, run: go(`guests/${g.vmid}`) })),
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guests, theme, bump]);
 
+  const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem('nav') === 'mini'; } catch { return false; } });
+  useEffect(() => { try { localStorage.setItem('nav', collapsed ? 'mini' : 'full'); } catch { /* storage unavailable */ } }, [collapsed]);
+  const inc = useQuery(api.incidents, [], 30_000);
+  const alerts = inc.data?.filter((i) => i.status === 'down').length ?? 0;
+  const crumbs = [current.group, current.label, ...(page === 'guests' && parts[1] ? [`#${parts[1]}`] : [])];
+
   return (
     <RefreshCtx.Provider value={{ tick, bump }}>
      <SearchCtx.Provider value={{ q, setQ }}>
-      <header className="head">
-        <div className="head-in">
-          <a href="#/overview" aria-label="SPL Systems, overview"><Logo /></a>
-          <nav className="head-nav" aria-label="Primary">
-            {NAV.map((n) => (
-              <a key={n.id} href={`#/${n.id}`} className={`nav-link ${current.id === n.id ? 'active' : ''}`} aria-current={current.id === n.id ? 'page' : undefined}>{n.label}</a>
+      <div className={`app ${collapsed ? 'mini' : ''} ${menu ? 'drawer' : ''}`}>
+        <aside className="side" aria-label="Primary">
+          <div className="side-brand">
+            <a href="#/overview" aria-label="SPL Systems, overview"><Logo /></a>
+            <span className="side-env">Console</span>
+          </div>
+          <nav className="side-nav">
+            {GROUPS.map((grp) => (
+              <div key={grp} className="side-group">
+                <p className="side-label">{grp}</p>
+                {NAV.filter((n) => n.group === grp).map((n) => (
+                  <a key={n.id} href={`#/${n.id}`} title={collapsed ? n.label : undefined} className={`side-link ${current.id === n.id ? 'active' : ''}`} aria-current={current.id === n.id ? 'page' : undefined}>
+                    <Icon name={n.icon} size={18} /><span>{n.label}</span>
+                    {n.id === 'kuma' && alerts > 0 && <em className="side-count">{alerts}</em>}
+                  </a>
+                ))}
+              </div>
             ))}
           </nav>
-          <label className="search topsearch hide-sm">
-            <Icon name="search" size={16} />
-            <input value={q} onChange={(e) => onSearch(e.target.value)} placeholder={SEARCH_HINT[current.id]} aria-label="Search" />
-            {q && <button onClick={() => setQ('')} aria-label="Clear search"><Icon name="x" size={14} /></button>}
-          </label>
-          <div className="head-actions">
-            <button className="btn btn-ghost" onClick={() => setPalette(true)} aria-label="Open command palette"><kbd>Ctrl K</kbd></button>
-            <button className="icon-btn" onClick={bump} aria-label="Refresh data" title="Refresh"><span className={spin ? 'spin' : ''}><Icon name="refresh" size={17} /></span></button>
-            <button className="icon-btn" onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))} aria-label="Toggle theme" title="Toggle theme"><Icon name={theme === 'dark' ? 'sun' : 'moon'} /></button>
-            <div className="me">
-              <span className="avatar">{user.slice(0, 2).toUpperCase()}</span>
-              <div><b>{user}</b><small>Administrator</small></div>
-              <button className="icon-btn" onClick={logout} aria-label="Sign out" title="Sign out"><Icon name="logout" size={17} /></button>
-            </div>
+          <div className="side-foot">
+            <button className="side-link" onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}><Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} /><span>{theme === 'dark' ? 'Light theme' : 'Dark theme'}</span></button>
+            <button className="side-link hide-sm" onClick={() => setCollapsed((c) => !c)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}><span className={`chev ${collapsed ? 'flip' : ''}`}><Icon name="back" size={18} /></span><span>Collapse</span></button>
           </div>
-          <button className="menu-btn" onClick={() => setMenu(true)} aria-haspopup="dialog" aria-expanded={menu}>Menu</button>
-        </div>
-      </header>
+        </aside>
+        <div className="side-scrim" onClick={() => setMenu(false)} />
 
-      <div className={`sheet ${menu ? 'open' : ''}`} role="dialog" aria-modal="true" aria-label="Site menu" aria-hidden={!menu} {...(menu ? {} : { inert: '' })}>
-        <div className="sheet-bg" onClick={() => setMenu(false)} />
-        <div className="sheet-panel">
-          <div className="sheet-in">
-            <button className="sheet-close" onClick={() => setMenu(false)}>Close</button>
-            <ul>
-              {NAV.map((n) => (
-                <li key={n.id}><a href={`#/${n.id}`} className={current.id === n.id ? 'active' : ''} onClick={() => setMenu(false)}>{n.label}<Icon name={n.icon} size={22} /></a></li>
-              ))}
-            </ul>
-            <div className="sheet-foot">
-              <button onClick={() => { setMenu(false); setPalette(true); }}>Quick jump</button>
-              <button onClick={() => { bump(); setMenu(false); }}>Refresh data</button>
-              <button onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}>{theme === 'dark' ? 'Light theme' : 'Dark theme'}</button>
-              <button onClick={logout}>Sign out ({user})</button>
+        <div className="main">
+          <header className="topbar">
+            <button className="icon-btn show-sm" onClick={() => setMenu(true)} aria-label="Open navigation"><Icon name="list" /></button>
+            <ol className="crumbs" aria-label="Breadcrumb">
+              {crumbs.map((c, i) => <li key={i} className={i === crumbs.length - 1 ? 'cur' : ''}>{c}</li>)}
+            </ol>
+            <label className="search topsearch hide-sm">
+              <Icon name="search" size={16} />
+              <input value={q} onChange={(e) => onSearch(e.target.value)} placeholder={SEARCH_HINT[current.id]} aria-label="Search" />
+              {q ? <button onClick={() => setQ('')} aria-label="Clear search"><Icon name="x" size={14} /></button> : <kbd onClick={() => setPalette(true)}>Ctrl K</kbd>}
+            </label>
+            <div className="head-actions">
+              <button className="icon-btn show-sm" onClick={() => setPalette(true)} aria-label="Search"><Icon name="search" size={17} /></button>
+              <button className="icon-btn" onClick={bump} aria-label="Refresh data" title="Refresh"><span className={spin ? 'spin' : ''}><Icon name="refresh" size={17} /></span></button>
+              <a className="icon-btn bell" href="#/kuma" aria-label={`${alerts} monitors down`} title={alerts ? `${alerts} monitor${alerts === 1 ? '' : 's'} down` : 'No active incidents'}>
+                <Icon name="bell" size={17} />{alerts > 0 && <i className="bell-dot">{alerts}</i>}
+              </a>
+              <div className="me">
+                <span className="avatar">{user.slice(0, 2).toUpperCase()}</span>
+                <div className="hide-sm"><b>{user}</b><small>Administrator</small></div>
+                <button className="icon-btn" onClick={logout} aria-label="Sign out" title="Sign out"><Icon name="logout" size={17} /></button>
+              </div>
             </div>
-          </div>
+          </header>
+
+          <main className="content" key={page + (parts[1] ?? '')}>
+            {page === 'overview' && <Overview />}
+            {page === 'node' && <Node tab={parts[1]} />}
+            {page === 'guests' && (parts[1] && /^\d+$/.test(parts[1]) ? <GuestDetail vmid={Number(parts[1])} tab={parts[2]} /> : <Guests />)}
+            {page === 'tasks' && <Tasks />}
+            {page === 'nginx' && <Nginx />}
+            {page === 'grafana' && <Grafana uid={parts[1]} />}
+            {page === 'kuma' && <Kuma statusUrl={config.kumaStatusUrl} />}
+            {page === 'logs' && <Logs />}
+            {page === 'notifications' && <Notifications />}
+            {!NAV.some((n) => n.id === page) && <Overview />}
+          </main>
         </div>
       </div>
-
-      <main className="content" key={page}>
-        {page === 'overview' && <Overview />}
-        {page === 'guests' && <Guests />}
-        {page === 'nginx' && <Nginx />}
-        {page === 'grafana' && <Grafana uid={parts[1]} />}
-        {page === 'kuma' && <Kuma statusUrl={config.kumaStatusUrl} />}
-        {page === 'logs' && <Logs />}
-        {!NAV.some((n) => n.id === page) && <Overview />}
-      </main>
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
      </SearchCtx.Provider>
     </RefreshCtx.Provider>

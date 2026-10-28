@@ -170,7 +170,7 @@ async function handle(method: string, path: string, body: any): Promise<Response
     });
   }
   if (path === '/guests') { jitter(); return json(guests); }
-  let m = path.match(/^\/guests\/(\d+)(?:\/(start|shutdown|stop|reboot))?$/);
+  let m = path.match(/^\/guests\/(\d+)(?:\/(start|shutdown|stop|reboot|reset|suspend|resume))?$/);
   if (m) {
     const gu = guests.find((x) => x.vmid === +m![1]);
     if (!gu) return fail(404, 'NOT_FOUND', `Guest ${m[1]} does not exist`);
@@ -189,6 +189,37 @@ async function handle(method: string, path: string, body: any): Promise<Response
     if (now() < t.doneAt) return json({ status: 'running', message: '' });
     return json(t.fail ? { status: 'error', message: t.fail } : { status: 'ok', message: t.ok });
   }
+  if (path.startsWith('/node/rrd') || /^\/guests\/\d+\/rrd/.test(path)) {
+    const t0 = Math.floor(now() / 1000) - 3600;
+    return json(Array.from({ length: 70 }, (_, i) => ({
+      time: t0 + i * 60, cpu: 0.15 + Math.sin(i / 6) * 0.08, iowait: 0.002, loadavg: 3 + Math.sin(i / 9), memused: 21 * GB + Math.sin(i / 5) * GB,
+      memtotal: 32 * GB, mem: 2 * GB, maxmem: 4 * GB, netin: 2e6 + Math.sin(i / 4) * 1e6, netout: 8e5, diskread: 1e5, diskwrite: 4e5,
+    })));
+  }
+  if (path === '/node') {
+    return json({ name: 'pve', cpu: 0.18, wait: 0.001, cpuModel: 'AMD Ryzen 9 9900X 12-Core Processor', cpus: 24, cores: 12, sockets: 1, mhz: 5400,
+      loadavg: [2.1, 1.9, 1.7], memUsed: 21.4 * GB, memTotal: 32 * GB, swapUsed: 0.5 * GB, swapTotal: 8 * GB, rootUsed: 140 * GB, rootTotal: 1000 * GB,
+      ksmShared: 0, uptime: 86400 * 3, kernel: '7.0.14-24-pve', pveVersion: '9.2.21', bootMode: 'EFI', subscription: 'notfound', timezone: 'UTC', dns: ['1.1.1.1'], searchDomain: 'home.lan' });
+  }
+  if (path === '/node/network') return json([{ iface: 'vmbr0', type: 'bridge', active: true, autostart: true, method: 'static', cidr: '192.168.1.10/24', gateway: '192.168.1.1', cidr6: null, ports: ['nic0'], vlanAware: false, comments: '' }, { iface: 'nic0', type: 'eth', active: true, autostart: false, method: 'manual', cidr: null, gateway: null, cidr6: null, ports: [], vlanAware: false, comments: '' }]);
+  if (path === '/node/disks') return json([{ devpath: '/dev/nvme0n1', model: 'Demo NVMe 2TB', serial: 'DEMO123', type: 'nvme', size: 2000 * GB, health: 'PASSED', wearout: 97, used: 'LVM', gpt: true, rpm: null }]);
+  if (path === '/node/services') return json(['pveproxy', 'pvedaemon', 'pvestatd', 'pve-cluster', 'chrony'].map((n) => ({ name: n, desc: `${n} service`, state: 'running', active: 'active', unit: 'enabled' })));
+  if (path === '/node/storage') return json([{ storage: 'local', type: 'dir', content: ['iso', 'vztmpl', 'backup'], active: true, enabled: true, shared: false, used: 140 * GB, total: 1000 * GB }]);
+  if (path.startsWith('/tasks?') || path === '/tasks') {
+    return json(guests.slice(0, 8).map((x, i) => ({ upid: `UPID:pve:0000${i}:0:0:${x.type === 'qemu' ? 'qmstart' : 'vzstart'}:${x.vmid}:root@pam:`, type: x.type === 'qemu' ? 'qmstart' : 'vzstart', id: String(x.vmid), user: 'root@pam', start: Math.floor(now() / 1000) - i * 3600, end: Math.floor(now() / 1000) - i * 3600 + 3, status: i === 3 ? 'error' : 'ok', message: i === 3 ? "storage 'local-zfs' is not available" : 'OK' })));
+  }
+  if (/^\/tasks\/.+\/log$/.test(path)) return json(['starting guest…', 'TASK OK']);
+  m = path.match(/^\/guests\/(\d+)\/(status|config|snapshots)$/);
+  if (m) {
+    const gu = guests.find((x) => x.vmid === +m![1]);
+    if (!gu) return fail(404, 'NOT_FOUND', `Guest ${m[1]} does not exist`);
+    if (m[2] === 'status') return json({ ...gu, cpus: 4, diskUsed: 8 * GB, diskMax: 32 * GB, swapUsed: 0, swapMax: 0, netIn: 3 * GB, netOut: GB, diskRead: 2 * GB, diskWrite: GB, pid: 1234, lock: null, haManaged: false, agent: gu.type === 'qemu' ? true : null, qmpStatus: null, runningMachine: null, runningQemu: null });
+    if (m[2] === 'config') return json([{ key: 'cores', value: '4', pending: null, delete: false }, { key: 'memory', value: String(gu.memMax / 1024 ** 2), pending: '8192', delete: false }, { key: 'net0', value: 'name=eth0,bridge=vmbr0,ip=dhcp', pending: null, delete: false }, { key: 'onboot', value: '1', pending: null, delete: false }, { key: 'ostype', value: gu.type === 'qemu' ? 'win11' : 'debian', pending: null, delete: false }]);
+    return json([{ name: 'before-upgrade', parent: null, description: 'Before the upgrade', time: Math.floor(now() / 1000) - 86400 * 4, vmstate: false, current: false }, { name: 'current', parent: 'before-upgrade', description: 'You are here!', time: null, vmstate: false, current: true }]);
+  }
+  if (path === '/notify') return json({ configured: true, server: 'https://ntfy.example', topic: 'demo-alerts', subscribeUrl: 'https://ntfy.example/demo-alerts', thresholds: { cpu: 0.9, mem: 0.92, disk: 0.9 }, settings: { enabled: true, recoveries: true, mutedUntil: null, categories: {} }, categories: ['monitor', 'guest', 'host', 'resources', 'tasks', 'disks', 'services', 'db', 'app', 'auth'], sent: [{ ts: iso(600000), title: 'DOWN · Uptime monitor', message: 'Legacy Wiki: up → down', priority: 5, category: 'monitor', ok: true }] });
+  if (path === '/notify/settings') return json({ enabled: true, recoveries: true, mutedUntil: null, categories: {}, ...body });
+  if (path === '/notify/test') return json({ ok: true });
   if (path === '/nginx/sites') return json(sites);
   if (path === '/grafana/dashboards') return json(dashboards);
   m = path.match(/^\/grafana\/panels\/(.+)$/);

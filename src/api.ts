@@ -1,6 +1,7 @@
 import type {
   AppConfig, Guest, GuestAction, GrafanaDashboard, GrafanaPanel, KumaIncident, KumaMonitor,
   JournalLine, LogSummary, NginxSite, Overview, PromResult, SsoConfig, SystemEvent, Task,
+  ConfigRow, Disk, NotifyInfo, NotifySettings, GuestStatusDetail, NetIface, NodeInfo, PveTask, RrdPoint, Service, Snapshot, Storage, Timeframe,
 } from './types';
 
 export class ApiError extends Error {
@@ -57,6 +58,22 @@ export const api = {
   guests: () => get<Guest[]>('/guests'),
   guestAction: (vmid: number, action: GuestAction) => post<{ taskId: string }>(`/guests/${vmid}/${action}`),
   task: (id: string) => get<Task>(`/tasks/${encodeURIComponent(id)}`),
+  guestStatus: (vmid: number) => get<GuestStatusDetail>(`/guests/${vmid}/status`),
+  guestConfig: (vmid: number) => get<ConfigRow[]>(`/guests/${vmid}/config`),
+  guestRrd: (vmid: number, tf: Timeframe) => get<RrdPoint[]>(`/guests/${vmid}/rrd?timeframe=${tf}`),
+  snapshots: (vmid: number) => get<Snapshot[]>(`/guests/${vmid}/snapshots`),
+  node: () => get<NodeInfo>('/node'),
+  nodeRrd: (tf: Timeframe) => get<RrdPoint[]>(`/node/rrd?timeframe=${tf}`),
+  network: () => get<NetIface[]>('/node/network'),
+  disks: () => get<Disk[]>('/node/disks'),
+  services: () => get<Service[]>('/node/services'),
+  storage: () => get<Storage[]>('/node/storage'),
+  tasks: (p: { vmid?: number; errors?: boolean; type?: string; limit?: number } = {}) =>
+    get<PveTask[]>('/tasks' + qs({ vmid: p.vmid?.toString(), errors: p.errors ? '1' : undefined, type: p.type, limit: String(p.limit ?? 100) })),
+  taskLog: (id: string) => get<string[]>(`/tasks/${encodeURIComponent(id)}/log`),
+  notify: () => get<NotifyInfo>('/notify'),
+  notifySettings: (s: Partial<NotifySettings>) => post<NotifySettings>('/notify/settings', s),
+  notifyTest: () => post<{ ok: true }>('/notify/test'),
   nginx: () => get<NginxSite[]>('/nginx/sites'),
   dashboards: () => get<GrafanaDashboard[]>('/grafana/dashboards'),
   panels: (uid: string) => get<GrafanaPanel[]>(`/grafana/panels/${encodeURIComponent(uid)}`),
