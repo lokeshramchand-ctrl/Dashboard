@@ -144,7 +144,7 @@ const SINCE = /^(\d{4}-\d{2}-\d{2}( \d{2}:\d{2}(:\d{2})?)?|-?\d+(s|m|h|d|min|hou
 
 interface JournalLine { ts: string; priority: number; unit: string; message: string; pid?: string }
 
-async function journal(args: string[]): Promise<JournalLine[]> {
+export async function journal(args: string[]): Promise<JournalLine[]> {
   if (!cfg.journalEnabled) throw new HttpError(503, 'NOT_CONFIGURED', 'Host journal access is disabled (JOURNAL_ENABLED=false)');
   let stdout: string;
   try {
