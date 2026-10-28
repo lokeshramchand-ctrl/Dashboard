@@ -8,7 +8,7 @@ import Notifications from './Notifications';
 import Sites from './Sites';
 import Tasks from './Tasks';
 import { useSession } from '../session';
-import { space } from '../theme';
+import { avatarColor, space } from '../theme';
 import { useQuery } from '../useQuery';
 
 export default function More() {
@@ -46,9 +46,16 @@ function Menu({ go }: { go: (v: Sub) => void }) {
       </Card>
       <SectionTitle>Account</SectionTitle>
       <Card style={{ gap: space.sm }}>
-        <Txt muted small>Signed in as</Txt>
-        <Txt bold>{user}</Txt>
-        <Txt muted small>Server</Txt>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+          <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: avatarColor(user ?? ''), alignItems: 'center', justifyContent: 'center' }}>
+            <Txt bold style={{ color: '#fff', fontSize: 18 }}>{(user ?? '?').slice(0, 2).toUpperCase()}</Txt>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Txt bold>{user}</Txt>
+            <Txt muted small>Administrator</Txt>
+          </View>
+        </View>
+        <Txt muted small style={{ marginTop: space.sm }}>Server</Txt>
         <Txt numberOfLines={1}>{serverUrl}</Txt>
         <View style={{ marginTop: space.sm }}><Button title="Sign out" kind="danger" onPress={confirmSignOut} /></View>
       </Card>

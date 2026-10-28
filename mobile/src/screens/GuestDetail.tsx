@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { api } from '../api';
 import { Async, Badge, Bars, Button, Card, Chips, KV, ListRow, Screen, SectionTitle, StateView, Txt } from '../components/ui';
 import { fmtBytes, fmtPct, fmtUptime, sleep } from '../format';
-import { space, useTheme } from '../theme';
+import { mono, space, useTheme } from '../theme';
 import type { GuestAction, GuestStatusDetail, Timeframe } from '../types';
 import { useQuery } from '../useQuery';
 import { Res, TIMEFRAMES } from './Node';
@@ -170,7 +170,7 @@ function GuestLogsView({ vmid }: { vmid: number }) {
                 <>
                   <Txt small bold>{d.reason}</Txt>
                   <Txt muted small>{new Date(d.lastFailure.ts).toLocaleString()}</Txt>
-                  <Txt small style={{ fontFamily: 'Courier' }}>{tidy(d.lastFailure.message)}</Txt>
+                  <Txt small style={{ fontFamily: mono }}>{tidy(d.lastFailure.message)}</Txt>
                 </>
               ) : <Txt muted small>{`Nothing failed in the last ${since}.`}</Txt>}
               <Txt muted small>{`${d.counts.error} errors · ${d.counts.warn} warnings · ${d.failedTasks.length} failed tasks`}</Txt>

@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api';
 import { Async, Badge, Button, Card, Chips, ListRow, Screen, Txt } from '../components/ui';
 import { timeAgo } from '../format';
-import { space, useTheme } from '../theme';
+import { mono, space, useTheme } from '../theme';
 import type { Tone } from '../theme';
 import type { PveTask } from '../types';
 import { useQuery } from '../useQuery';
@@ -54,7 +54,7 @@ function TaskLog({ task, onClose }: { task: PveTask; onClose: () => void }) {
         </View>
         <ScrollView style={{ flex: 1, borderRadius: 12, backgroundColor: '#0b0b0b' }} contentContainerStyle={{ padding: space.md }}>
           <Async q={q} rows={4} h={16}>
-            {(lines) => <Text selectable style={{ color: '#e8e8e8', fontFamily: 'Courier', fontSize: 12, lineHeight: 18 }}>{lines.join('\n') || 'No output'}</Text>}
+            {(lines) => <Text selectable style={{ color: '#e8e8e8', fontFamily: mono, fontSize: 12, lineHeight: 18 }}>{lines.join('\n') || 'No output'}</Text>}
           </Async>
         </ScrollView>
         <Button title="Close" onPress={onClose} />
