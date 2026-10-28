@@ -66,6 +66,15 @@ export const cfg = {
     label: env('KEYCLOAK_LABEL', 'Keycloak'),
   },
 
+  ntfy: {
+    url: trim(env('NTFY_URL')), // how the backend reaches ntfy, e.g. http://10.10.10.103
+    publicUrl: trim(env('NTFY_PUBLIC_URL')), // what phones subscribe to
+    topic: env('NTFY_TOPIC'),
+    token: env('NTFY_TOKEN'), // optional access token
+    clickUrl: env('NTFY_CLICK_URL'), // opened when the notification is tapped
+    cpuLimit: Number(env('ALERT_CPU', '0.9')), memLimit: Number(env('ALERT_MEM', '0.92')), diskLimit: Number(env('ALERT_DISK', '0.9')),
+  },
+
   frameSrc: env('FRAME_SRC').split(/\s+/).filter(Boolean), // origins the UI may embed (Grafana, Kuma status page)
 };
 
@@ -73,3 +82,4 @@ export const pveConfigured = () => !!(cfg.pveUrl && cfg.pveNode && cfg.pveTokenI
 export const grafanaConfigured = () => !!(cfg.grafanaUrl && cfg.grafanaToken);
 export const keycloakConfigured = () => !!(cfg.keycloak.issuer && cfg.keycloak.clientId && cfg.keycloak.redirectUri);
 export const kumaConfigured = () => !!(cfg.kumaUrl && cfg.kumaApiKey);
+export const ntfyConfigured = () => !!(cfg.ntfy.url && cfg.ntfy.topic);

@@ -11,6 +11,8 @@ import { registerGuests } from './guests.js';
 import { registerKuma, startKuma } from './kuma.js';
 import { recordCleanStop, registerLogs, startEvents } from './events.js';
 import { registerNginx } from './nginx.js';
+import { registerNode } from './node.js';
+import { registerNotify, startNotify } from './notify.js';
 import { registerOidc } from './oidc.js';
 import { registerOverview } from './overview.js';
 
@@ -64,12 +66,15 @@ registerOidc(app);
 registerLogs(app);
 registerOverview(app);
 registerGuests(app);
+registerNode(app);
+registerNotify(app);
 registerNginx(app);
 registerGrafana(app);
 registerKuma(app);
 if (cfg.serveDist) await app.register(staticFiles, { root: resolve(cfg.serveDist) });
 startKuma(app);
 startEvents(app);
+startNotify(app);
 
 const shutdown = async () => { await recordCleanStop(); await app.close(); await closeDb(); process.exit(0); };
 process.on('SIGINT', shutdown);
