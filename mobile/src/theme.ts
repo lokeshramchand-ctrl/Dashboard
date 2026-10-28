@@ -1,4 +1,4 @@
-import { useColorScheme } from 'react-native';
+import { Platform, useColorScheme } from 'react-native';
 
 // Mirrors the web UI tokens (src/styles.css): ink on off-white, black dark theme, logo colours for status.
 const light = {
@@ -18,6 +18,16 @@ const dark: typeof light = {
 
 export type Theme = typeof light & { dark: boolean };
 export type Tone = 'green' | 'red' | 'amber' | 'blue' | 'gray';
+
+// Platform-native monospace (no bundled font needed): iOS Menlo, Android Roboto Mono.
+export const mono = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) as string;
+// Brand logo colours, used to give each user a stable, random-looking avatar colour.
+const AVATAR_COLORS = ['#ed272e', '#0870b9', '#3eb850', '#8499e2', '#0b7a8c', '#b7791f'];
+export function avatarColor(user: string): string {
+  let h = 0;
+  for (let i = 0; i < user.length; i++) h = (h * 31 + user.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
 
 export const radius = 14;
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 };

@@ -3,7 +3,7 @@ import { Text, View } from 'react-native';
 import { api } from '../api';
 import { Async, Badge, Card, Chips, ListRow, Screen, SectionTitle, StateView, Txt } from '../components/ui';
 import { timeAgo } from '../format';
-import { space, useTheme } from '../theme';
+import { mono, space, useTheme } from '../theme';
 import type { Tone } from '../theme';
 import type { LogLine, Recurring } from '../types';
 import { useQuery } from '../useQuery';
@@ -29,7 +29,7 @@ export function LogLines({ lines, max = 120 }: { lines: LogLine[]; max?: number 
                 <Badge tone={LV[l.level]}>{l.kind}</Badge>
                 <Txt muted small numberOfLines={1} style={{ flex: 1 }}>{l.unit} · {timeAgo(l.ts)}</Txt>
               </View>
-              <Text selectable style={{ color: t.text, fontFamily: 'Courier', fontSize: 12 }}>{tidy(l.message)}</Text>
+              <Text selectable style={{ color: t.text, fontFamily: mono, fontSize: 12 }}>{tidy(l.message)}</Text>
             </View>
           ))}
         </Card>
