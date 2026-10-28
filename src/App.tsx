@@ -40,6 +40,12 @@ const SEARCH_HINT: Record<string, string> = {
   grafana: 'Search dashboards, folders or tags…', kuma: 'Search monitors…', logs: 'Filter messages…', gpu: 'Search…', diagnostics: 'Search…', notifications: 'Search…',
 };
 
+type ThemePref = 'system' | 'light' | 'dark';
+const THEME_ORDER: ThemePref[] = ['system', 'light', 'dark'];
+const systemTheme = (): 'light' | 'dark' => (typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+const THEME_ICON: Record<ThemePref, IconName> = { system: 'monitor', light: 'sun', dark: 'moon' };
+const THEME_LABEL: Record<ThemePref, string> = { system: 'System theme', light: 'Light theme', dark: 'Dark theme' };
+
 // Flat brand colours; a stable hash of the username picks one, so each user keeps the same
 // solid-colour monogram across sessions. No gradients — just the initials, cleanly set.
 const AVATAR_COLORS = ['#ed272e', '#0870b9', '#3eb850', '#5a6fc9', '#0b7a8c', '#c27a16'];
@@ -84,14 +90,23 @@ function Shell({ user, config, onLogout }: { user: string; config: AppConfig; on
   const [tick, setTick] = useState(0);
   const [spin, setSpin] = useState(false);
   const bump = useCallback(() => { setTick((t) => t + 1); setSpin(true); setTimeout(() => setSpin(false), 700); }, []);
-  const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'light');
+  const [theme, setTheme] = useState<ThemePref>(() => {
+    try { return (localStorage.getItem('theme-pref') as ThemePref) || 'system'; } catch { return 'system'; }
+  });
   const parts = useHash();
   const page = parts[0] || 'overview';
 
+  // "system" tracks the OS; "light"/"dark" pin it. Follows live OS changes when on system.
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    try { localStorage.setItem('theme', theme); } catch { /* storage unavailable */ }
+    const apply = () => { document.documentElement.dataset.theme = theme === 'system' ? systemTheme() : theme; };
+    apply();
+    try { localStorage.setItem('theme-pref', theme); } catch { /* storage unavailable */ }
+    if (theme !== 'system' || typeof matchMedia !== 'function') return;
+    const mq = matchMedia('(prefers-color-scheme: dark)');
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
   }, [theme]);
+  const cycleTheme = () => setTheme((t) => THEME_ORDER[(THEME_ORDER.indexOf(t) + 1) % THEME_ORDER.length]);
 
   async function logout() {
     try { await api.logout(); } catch { /* cookie may already be gone */ }
@@ -130,7 +145,7 @@ function Shell({ user, config, onLogout }: { user: string; config: AppConfig; on
     return [
       ...NAV.map((n) => ({ id: `nav-${n.id}`, label: n.label, group: 'Go to', icon: n.icon, run: go(n.id) })),
       { id: 'act-refresh', label: 'Refresh data', group: 'Actions', icon: 'refresh', run: bump },
-      { id: 'act-theme', label: theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme', group: 'Actions', icon: theme === 'dark' ? 'sun' : 'moon', run: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')) },
+      { id: 'act-theme', label: `Theme: ${THEME_LABEL[theme].replace(' theme', '')} — switch`, group: 'Actions', icon: THEME_ICON[theme], run: cycleTheme },
       { id: 'act-logout', label: 'Sign out', group: 'Actions', icon: 'logout', run: logout },
       ...guests.map((g) => ({ id: `guest-${g.vmid}`, label: g.name, hint: `${g.type} ${g.vmid} · ${g.status}`, group: 'Guests', icon: 'server' as const, run: go(`guests/${g.vmid}`) })),
     ];
@@ -168,7 +183,7 @@ function Shell({ user, config, onLogout }: { user: string; config: AppConfig; on
             ))}
           </nav>
           <div className="side-foot">
-            <button className="side-link" onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}><Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} /><span>{theme === 'dark' ? 'Light theme' : 'Dark theme'}</span></button>
+            <button className="side-link" onClick={cycleTheme} title="Cycle System / Light / Dark"><Icon name={THEME_ICON[theme]} size={18} /><span>{THEME_LABEL[theme]}</span></button>
             <button className="side-link hide-sm" onClick={() => setCollapsed((c) => !c)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}><span className={`chev ${collapsed ? 'flip' : ''}`}><Icon name="back" size={18} /></span><span>Collapse</span></button>
           </div>
         </aside>

@@ -5,18 +5,50 @@ import { AreaCard } from '../components/AreaCard';
 import { Async, Badge, Card, CardHead, ErrorState, Icon, Meter, PageHeader, Skeleton } from '../components/ui';
 import type { IconName, Tone } from '../components/ui';
 import { fmtBytes, fmtPct, fmtUptime, timeAgo } from '../format';
-import { useQuery } from '../hooks';
+import { useCountUp, useQuery } from '../hooks';
 import type { Overview as Ov } from '../types';
 
-function Tile({ icon, label, value, sub, tone, href }: { icon: IconName; label: string; value: string | number; sub: string; tone: Tone; href: string }) {
+function Tile({ icon, label, value, sub, tone, href }: { icon: IconName; label: string; value: number; sub: string; tone: Tone; href: string }) {
+  const n = Math.round(useCountUp(value));
   return (
     <a className={`tile ic-${tone}`} href={href}>
       <div className="tile-top"><span className="tile-label">{label}</span><span className="tile-ic"><Icon name={icon} size={20} /></span></div>
       <div>
-        <p className="tile-value">{value}</p>
+        <p className="tile-value">{n}</p>
         <p className="tile-sub">{sub}</p>
       </div>
     </a>
+  );
+}
+
+/** One calm 0–100 number fusing host pressure and monitor state. 100 = everything nominal. */
+function healthScore(o: Ov, incidents: { status: string }[]): number {
+  let s = 100;
+  for (const i of incidents) s -= i.status === 'down' ? 16 : i.status === 'pending' ? 4 : 0;
+  const mem = o.host.memTotal ? o.host.memUsed / o.host.memTotal : 0;
+  const disk = o.host.diskTotal ? o.host.diskUsed / o.host.diskTotal : 0;
+  s -= o.host.cpu > 0.9 ? 20 : o.host.cpu > 0.75 ? 10 : 0;
+  s -= mem > 0.92 ? 15 : mem > 0.8 ? 8 : 0;
+  s -= disk > 0.9 ? 15 : disk > 0.8 ? 8 : 0;
+  return Math.max(0, Math.min(100, Math.round(s)));
+}
+const healthTone = (s: number): Tone => (s >= 90 ? 'green' : s >= 75 ? 'blue' : s >= 50 ? 'amber' : 'red');
+const healthWord = (s: number) => (s >= 95 ? 'All systems nominal' : s >= 90 ? 'Healthy' : s >= 75 ? 'Minor attention' : s >= 50 ? 'Degraded' : 'Needs attention');
+
+function HealthRing({ score }: { score: number }) {
+  const v = useCountUp(score, 900);
+  const tone = healthTone(score);
+  const R = 52, C = 2 * Math.PI * R;
+  const off = C * (1 - Math.max(0, Math.min(100, v)) / 100);
+  return (
+    <div className="health-ring" role="img" aria-label={`System health ${score} out of 100`}>
+      <svg viewBox="0 0 128 128" width="128" height="128">
+        <circle className="hr-track" cx="64" cy="64" r={R} fill="none" strokeWidth="9" />
+        <circle className={`hr-arc m-${tone}`} cx="64" cy="64" r={R} fill="none" strokeWidth="9" strokeLinecap="round"
+          strokeDasharray={C} strokeDashoffset={off} transform="rotate(-90 64 64)" />
+      </svg>
+      <div className="hr-center"><b>{Math.round(v)}</b><small>/ 100</small></div>
+    </div>
   );
 }
 
@@ -46,21 +78,22 @@ export default function Overview() {
     <>
       <Hero items={items} ov={ov.data} />
 
-      <Card className="attn-card">
-        {items === null ? (
+      <Card className="health-card">
+        {items === null || !ov.data ? (
           ov.error || inc.error
             ? <ErrorState error={(ov.error ?? inc.error) as Error} onRetry={() => { ov.reload(); inc.reload(); }} />
-            : <Skeleton rows={2} h={64} />
+            : <Skeleton rows={2} h={88} />
         ) : (
-          <>
-            <div className="attn-head">
-              <div>
-                <h3 className={`attn-title ${items.length ? '' : 'ok'}`}><Icon name={items.length ? 'alert' : 'check'} size={20} />{items.length ? 'Needs Attention' : 'All systems healthy'}</h3>
-                <p className="muted small" style={{ marginTop: 6 }}>{items.length ? 'Issues requiring immediate action' : 'Nothing needs your attention right now.'}</p>
+          <div className="health-row">
+            <div className="health-main">
+              <HealthRing score={healthScore(ov.data, inc.data ?? [])} />
+              <div className="health-text">
+                <p className="eyebrow">System health</p>
+                <h3 className={`attn-title ${items.length ? '' : 'ok'}`}>{healthWord(healthScore(ov.data, inc.data ?? []))}</h3>
+                <p className="muted small">{items.length ? `${items.length} ${items.length === 1 ? 'item needs' : 'items need'} attention` : 'Everything is running normally.'}</p>
               </div>
-              {items.length > 0 && <span className="count-pill">{items.length}</span>}
             </div>
-            {items.length > 0 && (
+            {items.length > 0 ? (
               <div className="attn-grid">
                 {items.map((a) => (
                   <a key={a.key} href={a.href} className={`attn ${a.tone}`}>
@@ -69,8 +102,10 @@ export default function Overview() {
                   </a>
                 ))}
               </div>
+            ) : (
+              <div className="health-ok"><Icon name="check" size={18} /><span>No incidents, no resource pressure, every monitor up.</span></div>
             )}
-          </>
+          </div>
         )}
       </Card>
 

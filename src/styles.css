@@ -651,3 +651,30 @@ body { font-size: 14px; }
   .search.mini { min-width: 0; width: 100%; }
 }
 .timeline .grow, .card, .jl .msg, .rec-msg small { overflow-wrap: anywhere; }
+
+/* ---------- system health card (signature Overview element) ---------- */
+.health-card { padding: 24px 28px; }
+.health-row { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 28px; align-items: center; }
+.health-main { display: flex; align-items: center; gap: 22px; }
+.health-ring { position: relative; width: 128px; height: 128px; flex: none; }
+.health-ring svg { display: block; transform: rotate(0deg); }
+.hr-track { stroke: color-mix(in srgb, var(--text) 9%, transparent); }
+.hr-arc { transition: stroke-dashoffset .2s linear, stroke .6s var(--ease); }
+.hr-arc.m-green { stroke: var(--green); } .hr-arc.m-blue { stroke: var(--blue); } .hr-arc.m-amber { stroke: var(--peri); } .hr-arc.m-red { stroke: var(--red); }
+.hr-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
+.hr-center b { font-size: 34px; font-weight: 600; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.hr-center small { font-size: 11px; color: var(--muted); font-weight: 500; }
+.health-text .eyebrow { text-transform: uppercase; letter-spacing: .06em; font-size: 11px; font-weight: 600; }
+.health-text .attn-title { font-size: 22px; margin: 4px 0 6px; }
+.health-text .attn-title svg { display: none; }
+.health-text .attn-title.ok { color: var(--green-t); }
+.health-ok { display: flex; align-items: center; gap: 10px; padding: 16px 18px; border-radius: var(--r-sm); background: var(--green-soft); color: var(--green-t); font-weight: 500; font-size: 13.5px; }
+.health-row .attn-grid { margin-top: 0; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.tile-value { font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .hr-arc { transition: none; } }
+@media (max-width: 900px) {
+  .health-row { grid-template-columns: 1fr; gap: 20px; }
+  .health-main { gap: 18px; }
+  .health-ring { width: 104px; height: 104px; }
+  .health-ring svg { width: 104px; height: 104px; }
+}
