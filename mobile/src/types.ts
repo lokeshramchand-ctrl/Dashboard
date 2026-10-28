@@ -130,3 +130,20 @@ export interface Gpu {
 }
 export interface GpuInfo { iommu: { enabled: boolean; cmdline: string[] }; gpus: Gpu[] }
 export interface Diagnostics { since: string; failedTasks: PveTask[]; byKind: Record<string, number>; recurring: Recurring[]; lines: LogLine[] }
+
+export type Severity = 'critical' | 'warn' | 'info' | 'ok';
+export interface Finding { id: string; severity: Severity; title: string; detail: string; advice?: string; count?: number }
+export interface WinSession { start: string; end: string | null; durationSec: number | null; cpuSec: number | null; memPeak: string | null; endedBy: string }
+export interface Stat { avg: number; p95: number; max: number; samples: number }
+export interface WindowsReport {
+  vmid: number; name: string; since: string; ostype: string; status: GuestStatus; verdict: Severity; uptime: number;
+  agent: {
+    state: 'ok' | 'unreachable' | 'no-permission' | 'vm-stopped'; error: string | null;
+    os: { name: string; version: string; kernel: string; arch: string } | null; hostname: string | null; timezone: string | null; timeSkewSec: number | null;
+    disks: { mount: string; name: string; type: string; used: number; total: number }[];
+    nics: { name: string; mac: string; ips: string[] }[]; users: string[];
+  };
+  findings: Finding[]; health: Finding[]; sessions: WinSession[]; taskHistory: PveTask[];
+  metrics: { samples: number; cpu: Stat | null; mem: Stat | null; netIn: Stat | null; netOut: Stat | null; diskRead: Stat | null; diskWrite: Stat | null; cpuSaturatedPct: number; idleSamples: number };
+  metricsTimeframe: Timeframe; counts: { lines: number; problems: number }; recurring: Recurring[]; lines: LogLine[];
+}

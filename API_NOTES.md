@@ -60,3 +60,14 @@ Backend deviations from the contract: Kuma `incidents[].message` is generic (`Mo
 - `GET /logs/journal?priority=&unit=&since=&boot=&kernel=&q=&limit=` → `[{ts, priority 0..7, unit, message, pid}]`, newest first. Read-only `journalctl` via execFile (no shell), every argument validated. Needs the service user in `systemd-journal`; otherwise 502/503 with `{error, code}`.
 - `GET /logs/summary` → `{boots[{index, bootId, first, last, clean: bool|null, endReason}], journalError, errors24h, lastHeartbeat, pendingEvents, processUptime}`. `clean=false` means that boot's journal ends without a shutdown sequence (power loss, reset, crash, hang).
 - `GET /auth/sso/config` (public) → `{enabled, label}`. `GET /auth/sso/login` redirects to Keycloak (authorization code + PKCE + nonce); `GET /auth/sso/callback` verifies the ID token (RS256 via JWKS, iss/aud/exp/nonce), checks `KEYCLOAK_ALLOWED_USERS` / `KEYCLOAK_REQUIRED_ROLE`, creates the normal session and redirects to `/` (failures go to `/?sso_error=<CODE>`). SSO users are stored as `kc:<username>` in `users`.
+
+## Windows VM diagnostics (addition)
+
+`GET /guests/:vmid/windows?since=24h|7d|30d` (QEMU guests only; LXC -> `400 UNSUPPORTED`) -> `{vmid, name, since, ostype, status, verdict, uptime, agent, findings[], health[], sessions[], taskHistory[], metrics, metricsTimeframe, counts, recurring[], lines[]}`.
+
+- `findings[]` / `health[]`: `{id, severity: critical|warn|info|ok, title, detail, advice?, count?}`, most severe first. `findings` come from the journal and task log; `health` is a static config review.
+- `agent.state`: `ok | unreachable | no-permission | vm-stopped`. `no-permission` means the API token lacks `VM.GuestAgent.Audit`. `timeSkewSec` is guest clock minus host clock.
+- `sessions[]`: one per run of the VM, newest first, from the systemd `<vmid>.scope` lines. `durationSec`/`cpuSec` are seconds, `memPeak` is systemd's string (e.g. `17.1G`); `endedBy` is the matching Proxmox task type or `from inside the guest (or crash)`.
+- `metrics.*`: `{avg, p95, max, samples}`; cpu is a 0..1 fraction, memory/net/disk in bytes (per second for net/disk). `cpuSaturatedPct` is a 0..1 fraction of samples at >=95% CPU.
+- Journal retention limits the window; `since` beyond what the journal keeps returns what exists. Read-only: only agent GET endpoints are called.
+

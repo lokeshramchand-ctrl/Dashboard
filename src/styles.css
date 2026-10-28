@@ -703,3 +703,16 @@ body { font-size: 14px; }
 .md-list { margin: 8px 0; padding-left: 22px; } .md-list li { margin: 4px 0; }
 .md code { font-family: var(--mono); font-size: 12.5px; background: color-mix(in srgb, var(--text) 8%, transparent); padding: 1px 5px; border-radius: 5px; }
 .md-code { font: 12.5px/1.6 var(--mono); background: #0b0b0b; color: #e8e8e8; padding: 12px 14px; border-radius: 8px; overflow-x: auto; margin: 10px 0; font-feature-settings: 'calt' 0; white-space: pre-wrap; word-break: break-word; }
+
+/* Windows diagnostics tab */
+.win-findings { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.win-finding { display: flex; gap: 12px; align-items: flex-start; }
+.win-finding b { display: block; }
+.win-finding p { margin: 2px 0 0; }
+.win-advice { display: flex; gap: 6px; align-items: flex-start; color: var(--green); }
+.win-findings.compact { gap: 8px; }
+.win-findings.compact .win-advice, .win-findings.compact .muted { display: none; }
+.win-run { grid-template-columns: 1.1fr 1.1fr 0.8fr 0.8fr 0.7fr 1.6fr; }
+.win-disks { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.live-toggle { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted, inherit); cursor: pointer; }
+@media (max-width: 760px) { .win-run { grid-template-columns: 1fr 1fr; } .win-run.g-head { display: none; } }
