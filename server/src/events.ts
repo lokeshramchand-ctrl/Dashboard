@@ -150,9 +150,11 @@ export async function journal(args: string[]): Promise<JournalLine[]> {
   try {
     ({ stdout } = await run('journalctl', ['--no-pager', '-q', '-o', 'json', ...args], { maxBuffer: 16 * 1024 * 1024, timeout: 15_000 }));
   } catch (e) {
-    const err = e as Error & { code?: string };
+    const err = e as Error & { code?: string | number; stdout?: string; stderr?: string };
     if (err.code === 'ENOENT') throw new HttpError(503, 'NOT_CONFIGURED', 'journalctl is not available on this host');
-    throw new HttpError(502, 'JOURNAL_ERROR', `journalctl failed: ${err.message.split('\n')[0]}`);
+    // systemd >= 255 exits 1 with no output when -g matches nothing; that is an empty result, not a failure.
+    if (err.code === 1 && !err.stderr?.trim()) stdout = err.stdout ?? '';
+    else throw new HttpError(502, 'JOURNAL_ERROR', `journalctl failed: ${err.message.split('\n')[0]}`);
   }
   const lines: JournalLine[] = [];
   for (const raw of stdout.split('\n')) {
