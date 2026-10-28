@@ -6,19 +6,20 @@ import { fmtBytes, fmtPct, fmtUptime } from '../format';
 import { useQuery, useSearch } from '../hooks';
 import type { Timeframe } from '../types';
 
-type Tab = 'summary' | 'network' | 'disks' | 'services' | 'storage';
+type Tab = 'summary' | 'sensors' | 'network' | 'disks' | 'services' | 'storage';
 
 export default function Node({ tab: initial }: { tab?: string }) {
-  const [tab, setTab] = useState<Tab>((['summary', 'network', 'disks', 'services', 'storage'].includes(initial ?? '') ? initial : 'summary') as Tab);
+  const [tab, setTab] = useState<Tab>((['summary', 'sensors', 'network', 'disks', 'services', 'storage'].includes(initial ?? '') ? initial : 'summary') as Tab);
   const node = useQuery(api.node, [], 5000);
   return (
     <>
       <PageHeader eyebrow="Datacenter / Node" title={node.data?.name ?? 'Node'} sub={node.data ? `Proxmox VE ${node.data.pveVersion} · ${node.data.kernel}` : 'Proxmox host summary, hardware and services.'} />
       <Chips value={tab} onChange={(t) => { setTab(t); history.replaceState(null, '', `#/node/${t}`); }} options={[
-        { id: 'summary', label: 'Summary' }, { id: 'network', label: 'Network' }, { id: 'disks', label: 'Disks' },
+        { id: 'summary', label: 'Summary' }, { id: 'sensors', label: 'Sensors' }, { id: 'network', label: 'Network' }, { id: 'disks', label: 'Disks' },
         { id: 'services', label: 'System services' }, { id: 'storage', label: 'Storage' },
       ]} />
       {tab === 'summary' && <Summary node={node} />}
+      {tab === 'sensors' && <Sensors />}
       {tab === 'network' && <Network />}
       {tab === 'disks' && <Disks />}
       {tab === 'services' && <Services />}
@@ -185,3 +186,38 @@ function StorageTab() {
   );
 }
 
+
+function Sensors() {
+  const q = useQuery(api.sensors, [], 5000);
+  return (
+    <Async q={q} rows={4} h={60} isEmpty={(d) => d.length === 0} empty={{ title: 'No sensors', hint: 'The host exposes no hwmon sensors.' }}>
+      {(list) => {
+        const chips = [...new Set(list.map((s) => s.chip))];
+        return (
+          <div className="sensor-grid">
+            {chips.map((c) => (
+              <Card key={c}>
+                <CardHead title={SENSOR_CHIP[c] ?? c} sub={c} />
+                <div className="res">
+                  {list.filter((s) => s.chip === c).map((s, i) => {
+                    const limit = s.crit ?? s.max ?? (s.kind === 'temp' ? 100 : null);
+                    const hot = s.kind === 'temp' && limit != null && s.value >= limit * 0.85;
+                    return s.kind === 'temp' ? (
+                      <div key={i} className="res-row">
+                        <div className="res-top"><span>{s.label}</span><b className={hot ? 'err-t' : ''}>{s.value.toFixed(1)} °C</b></div>
+                        <Meter value={limit ? s.value / limit : s.value / 100} />
+                      </div>
+                    ) : (
+                      <div key={i} className="res-top"><span>{s.label}</span><b>{s.value.toFixed(s.kind === 'fan' ? 0 : 2)} {s.unit}</b></div>
+                    );
+                  })}
+                </div>
+              </Card>
+            ))}
+          </div>
+        );
+      }}
+    </Async>
+  );
+}
+const SENSOR_CHIP: Record<string, string> = { k10temp: 'CPU (AMD)', coretemp: 'CPU (Intel)', amdgpu: 'Integrated GPU', nvme: 'NVMe SSD', acpitz: 'ACPI thermal zone', gigabyte_wmi: 'Motherboard', nct6775: 'Motherboard' };

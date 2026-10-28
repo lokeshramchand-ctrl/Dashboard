@@ -25,9 +25,15 @@ const RULES: [RegExp, Kind, LogLine['level']][] = [
   [/started with PID|Started \d+\.scope|start VM|Starting CT|startup for container|Started PVE LXC Container/i, 'start', 'info'],
   [/Restarting VM|requesting (reboot|shutdown)|shutdown|stopping|stopped|Deactivated successfully|exited|Stopping/i, 'stop', 'info'],
 ];
-const GPU_BAD = /fail|error|timeout|hang|fault|can't|cannot|unable|not ready|stuck|ring .* timeout|Xid|invalid|refused|denied/i;
+const GPU_BAD = /fail|error|timeout|\bhang|\bfault|can't|cannot|unable|not ready|stuck|Xid|invalid|refused|denied/i;
 
+// systemd (init.scope) logs failures on behalf of a unit; attribute them to that unit.
+const UNIT_IN_MSG = /([\w@.-]+\.(?:service|scope|timer|socket|mount))\b/;
 export function classify(l: { ts: string; priority: number; unit: string; message: string }): LogLine {
+  if (!l.unit || l.unit === 'init.scope' || l.unit === 'systemd') {
+    const u = UNIT_IN_MSG.exec(l.message)?.[1];
+    if (u) l = { ...l, unit: u };
+  }
   for (const [re, kind, level] of RULES) {
     if (!re.test(l.message)) continue;
     let lv = level;
