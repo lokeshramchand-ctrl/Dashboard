@@ -37,7 +37,6 @@ The UI implements the contract as given. Everything below is either a **clarific
    { "kumaStatusUrl": "https://kuma.home.lan/status/homelab", "grafanaUrl": "https://grafana.home.lan" }
    ```
    `kumaStatusUrl` enables the "Status page" button and embed on the Uptime page. Edit it on the server without rebuilding. If you would rather have it from the API, add `GET /kuma/status-page -> {url}` and I'll switch the UI to it.
-2. Build flag: `npm run build` ships with the **mock API enabled** (standalone demo, login password `demo`). `npm run build:prod` sets `VITE_MOCK=false` and talks to the real `/api`.
 
 ## Backend storage — MongoDB (implemented in `server/`)
 
@@ -54,10 +53,6 @@ Backend deviations from the contract: Kuma `incidents[].message` is generic (`Mo
 - All requests use root-relative `/api/...` with `credentials: 'same-origin'`; serve `dist/` and `/api` from the same origin (nginx fronting both). Assets use relative paths (`base: './'`).
 - Grafana needs `allow_embedding = true`, and if Grafana is on another origin, cookies/anonymous access must permit iframes (`cookie_samesite = none` or a reverse proxy on the same site).
 - Uptime Kuma's status page iframe needs no `X-Frame-Options: DENY` from the proxy.
-
-## Mock data included
-
-LXC guests (101–107, 109, 120), the Windows QEMU gaming VM (vmid 100, conflicts with 101/106), protected guest 120 (dashboard), an SSL nginx site (several), a non-SSL site, a **down** Kuma monitor (Legacy Wiki), pending and maintenance monitors, and a **failed task** (starting vmid 109 fails with `storage 'local-zfs' is not available`).
 
 ## Logs and Keycloak (additions)
 

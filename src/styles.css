@@ -371,7 +371,6 @@ kbd { font: 500 11px/1 ui-monospace, Menlo, Consolas, monospace; padding: 3px 6p
 .login label { display: flex; flex-direction: column; gap: 6px; font-weight: 500; font-size: 13px; }
 .login .muted { color: #6b6b6b; }
 .login-foot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 12px; font-weight: 500; color: #4a4a4a; max-width: 1800px; width: 100%; margin: 0 auto; }
-.demo-hint { text-align: left; }
 .login .wipe { align-self: flex-start; }
 
 /* ---------- responsive ---------- */

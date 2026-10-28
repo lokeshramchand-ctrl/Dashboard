@@ -63,7 +63,7 @@ function Root() {
   }, []);
 
   if (user === undefined) return <div className="boot"><Spinner size={28} /></div>;
-  if (user === null) return <Login onLogin={setUser} demo={import.meta.env.VITE_MOCK !== 'false'} />;
+  if (user === null) return <Login onLogin={setUser} />;
   return <Shell user={user} config={config} onLogout={() => setUser(null)} />;
 }
 
