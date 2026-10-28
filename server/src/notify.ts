@@ -5,10 +5,11 @@ import { cfg, ntfyConfigured, pveConfigured } from './config.js';
 import { col } from './db.js';
 import type { EventDoc } from './db.js';
 import { HttpError, notConfigured } from './errors.js';
+import { recentHardwareErrors } from './diagnostics.js';
 import { logEvent } from './events.js';
 import { pve } from './proxmox.js';
 
-export const CATEGORIES = ['monitor', 'guest', 'host', 'resources', 'tasks', 'disks', 'services', 'db', 'app', 'auth'] as const;
+export const CATEGORIES = ['monitor', 'guest', 'host', 'resources', 'tasks', 'gpu', 'hardware', 'disks', 'services', 'db', 'app', 'auth'] as const;
 type Category = (typeof CATEGORIES)[number];
 interface Settings { enabled: boolean; categories: Record<Category, boolean>; recoveries: boolean; mutedUntil: string | null }
 const DEFAULTS: Settings = { enabled: true, categories: Object.fromEntries(CATEGORIES.map((c) => [c, true])) as Record<Category, boolean>, recoveries: true, mutedUntil: null };
@@ -73,6 +74,7 @@ export function alertFromEvent(level: EventDoc['level'], source: EventDoc['sourc
 const over = new Map<string, number>(); // metric → first time seen over threshold
 const raised = new Set<string>();
 let seenTasks = new Set<string>();
+let kernelSince = new Date().toISOString();
 let firstTaskPoll = true;
 
 function threshold(key: string, label: string, value: number, limit: number, text: string) {
@@ -125,6 +127,15 @@ async function watch() {
       if (h !== 'PASSED' && h !== 'OK' && h !== 'UNKNOWN') alert('disks', 'error', `Disk health ${h}`, `${d.devpath} (${d.model ?? 'disk'}) reports S.M.A.R.T. ${h}`, `disk|${d.devpath}|${h}`);
       if (typeof d.wearout === 'number' && d.wearout <= 10) alert('disks', 'warn', 'SSD nearly worn out', `${d.devpath} has ${d.wearout}% life left`, `wear|${d.devpath}`);
     }
+  }
+  // Kernel lines since the previous poll: GPU passthrough faults, PCIe AER, MCE, I/O errors, OOM kills.
+  const from = kernelSince;
+  kernelSince = new Date().toISOString();
+  for (const l of await recentHardwareErrors(from)) {
+    const cat: Category = l.kind === 'gpu' ? 'gpu' : l.kind === 'oom' ? 'guest' : 'hardware';
+    const title = l.kind === 'gpu' ? 'GPU / passthrough error' : l.kind === 'oom' ? 'Out-of-memory kill' : l.kind === 'crash' ? 'Process crash' : 'Hardware error';
+    // Key on the message minus numbers so a burst of near-identical lines is one alert.
+    alert(cat, 'error', `${title} on ${cfg.pveNode}`, l.message.slice(0, 400), `k|${l.kind}|${l.message.replace(/\d+/g, '#').slice(0, 120)}`);
   }
   if (services.status === 'fulfilled') {
     for (const s of services.value) {
