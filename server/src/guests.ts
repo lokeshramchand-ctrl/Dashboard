@@ -18,8 +18,11 @@ const FROM: Record<Action, Guest['status'][]> = {
   start: ['stopped'], shutdown: ['running'], reboot: ['running'], reset: ['running'], suspend: ['running'],
   resume: ['paused'], stop: ['running', 'paused'],
 };
-// Config keys whose values are secrets even in an admin view.
+// Config keys whose values are secrets even in an admin view. Exact keys, plus a pattern
+// for anything that looks credential-bearing (tokens, passwords, keys passed via args, etc.).
 const SECRET_KEYS = new Set(['cipassword']);
+const SECRET_RE = /(password|passwd|secret|token|apikey|api_key|privkey|private_key|credential)/i;
+const isSecretKey = (k: string) => SECRET_KEYS.has(k) || SECRET_RE.test(k);
 
 function map(type: 'lxc' | 'qemu', r: any): Guest {
   const vmid = Number(r.vmid);
@@ -78,7 +81,7 @@ export function registerGuests(app: FastifyInstance) {
   app.get<{ Params: { vmid: string } }>('/api/guests/:vmid/config', async (req) => {
     const g = await findGuest(req.params.vmid);
     const rows = await pve<{ key: string; value?: unknown; pending?: unknown; delete?: number }[]>('GET', `${guestPath(g)}/pending`);
-    const show = (k: string, v: unknown) => (v === undefined ? null : SECRET_KEYS.has(k) ? '••••••' : String(v));
+    const show = (k: string, v: unknown) => (v === undefined ? null : isSecretKey(k) ? '••••••' : String(v));
     return rows
       .filter((r) => r.key !== 'digest')
       .map((r) => ({ key: r.key, value: show(r.key, r.value), pending: show(r.key, r.pending), delete: !!r.delete }))
