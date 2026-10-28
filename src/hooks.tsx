@@ -69,6 +69,33 @@ export function useGuestEvents(cb: (e: { vmid: number; status: GuestStatus }) =>
   }, []);
 }
 
+/** Eases a number toward its target with an ease-out curve. Honours reduced-motion
+ *  (snaps instantly) and always lands exactly on the target. Return value is a float;
+ *  round it at the call site. */
+export function useCountUp(target: number, ms = 650): number {
+  const [val, setVal] = useState(target);
+  const cur = useRef(target);
+  useEffect(() => {
+    const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const a = cur.current, b = target;
+    if (reduce || a === b || !Number.isFinite(b)) { cur.current = b; setVal(b); return; }
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / ms);
+      const e = 1 - Math.pow(1 - t, 3); // ease-out cubic
+      const v = a + (b - a) * e;
+      cur.current = v;
+      setVal(v);
+      if (t < 1) raf = requestAnimationFrame(tick);
+      else { cur.current = b; setVal(b); }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, ms]);
+  return val;
+}
+
 export function useHash(): string[] {
   const read = () => location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
   const [parts, setParts] = useState(read);
