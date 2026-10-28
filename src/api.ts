@@ -1,7 +1,7 @@
 import type {
   AppConfig, Guest, GuestAction, GrafanaDashboard, GrafanaPanel, KumaIncident, KumaMonitor,
   JournalLine, LogSummary, NginxSite, Overview, PromResult, SsoConfig, SystemEvent, Task,
-  AiInfo, ConfigRow, Diagnostics, Disk, GpuInfo, GuestLogs, LogLine, Sensor, NotifyInfo, NotifySettings, GuestStatusDetail, NetIface, NodeInfo, PveTask, RrdPoint, Service, Snapshot, Storage, Timeframe,
+  AiInfo, ConfigRow, Diagnostics, Disk, GpuInfo, GuestLogs, WindowsReport, LogLine, Sensor, NotifyInfo, NotifySettings, GuestStatusDetail, NetIface, NodeInfo, PveTask, RrdPoint, Service, Snapshot, Storage, Timeframe,
 } from './types';
 
 export class ApiError extends Error {
@@ -72,6 +72,7 @@ export const api = {
     get<PveTask[]>('/tasks' + qs({ vmid: p.vmid?.toString(), errors: p.errors ? '1' : undefined, type: p.type, limit: String(p.limit ?? 100) })),
   taskLog: (id: string) => get<string[]>(`/tasks/${encodeURIComponent(id)}/log`),
   guestLogs: (vmid: number, since: string) => get<GuestLogs>(`/guests/${vmid}/logs?since=${since}`),
+  windows: (vmid: number, since: string) => get<WindowsReport>(`/guests/${vmid}/windows?since=${since}`),
   gpu: () => get<GpuInfo>('/gpu'),
   gpuLogs: (since: string) => get<LogLine[]>(`/gpu/logs?since=${since}`),
   sensors: () => get<Sensor[]>('/node/sensors'),
