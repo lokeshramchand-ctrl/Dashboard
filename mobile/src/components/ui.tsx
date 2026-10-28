@@ -115,8 +115,8 @@ export function Async<T>({ q, isEmpty, empty, rows, h, children }: {
 }
 
 /** Scrolling screen with a large title and pull-to-refresh bound to the given queries. */
-export function Screen({ title, sub, queries = [], children, header }: {
-  title: string; sub?: string; queries?: Query<unknown>[]; children: ReactNode; header?: ReactNode;
+export function Screen({ title, sub, queries = [], children, header, back }: {
+  title: string; sub?: string; queries?: Query<unknown>[]; children: ReactNode; header?: ReactNode; back?: { label: string; onPress: () => void };
 }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
@@ -129,7 +129,8 @@ export function Screen({ title, sub, queries = [], children, header }: {
       keyboardShouldPersistTaps="handled"
     >
       <View style={{ gap: 2 }}>
-        <Text accessibilityRole="header" style={{ color: t.text, fontSize: 28, fontWeight: '700', letterSpacing: -0.5 }}>{title}</Text>
+        {back ? <View style={{ marginBottom: space.sm }}><BackBar title={back.label} onBack={back.onPress} /></View> : null}
+        <Text accessibilityRole="header" style={{ color: t.text, fontSize: 26, fontWeight: '700', letterSpacing: -0.6 }}>{title}</Text>
         {sub ? <Txt muted>{sub}</Txt> : null}
       </View>
       {header}
@@ -183,4 +184,70 @@ const s = StyleSheet.create({
   input: { height: 46, borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, fontSize: 15.5 },
   state: { alignItems: 'center', gap: 6, paddingVertical: 40, paddingHorizontal: space.lg },
   chip: { paddingHorizontal: 14, height: 34, borderRadius: 17, justifyContent: 'center' },
+  kv: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md, paddingVertical: 9 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: 13 },
 });
+
+/** Label / value rows, like the PVE summary panels. */
+export function KV({ rows }: { rows: [string, ReactNode][] }) {
+  const t = useTheme();
+  return (
+    <View>
+      {rows.map(([k, v], i) => (
+        <View key={k} style={[s.kv, { borderTopColor: t.border, borderTopWidth: i ? StyleSheet.hairlineWidth * 2 : 0 }]}>
+          <Txt muted small style={{ width: 112 }}>{k}</Txt>
+          <View style={{ flex: 1 }}>{typeof v === 'string' || typeof v === 'number' ? <Txt small bold>{v}</Txt> : v}</View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** Dependency-free column chart: one bar per sample, scaled to the series max. */
+export function Bars({ values, color, height = 72, label }: { values: number[]; color?: string; height?: number; label: string }) {
+  const t = useTheme();
+  const max = Math.max(...values, 1e-9);
+  const step = Math.max(1, Math.ceil(values.length / 60));
+  const pts = values.filter((_, i) => i % step === 0);
+  return (
+    <View accessibilityLabel={label} style={{ height, flexDirection: 'row', alignItems: 'flex-end', gap: 1 }}>
+      {pts.map((v, i) => (
+        <View key={i} style={{ flex: 1, height: Math.max(1, (v / max) * height), backgroundColor: color ?? t.chart, borderTopLeftRadius: 2, borderTopRightRadius: 2, opacity: 0.35 + 0.65 * (i / pts.length) }} />
+      ))}
+    </View>
+  );
+}
+
+export function SectionTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {
+  const t = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: space.sm }}>
+      <Text style={{ color: t.muted, fontSize: 12, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' }}>{children}</Text>
+      {right}
+    </View>
+  );
+}
+
+export function BackBar({ title, onBack }: { title: string; onBack: () => void }) {
+  const t = useTheme();
+  return (
+    <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel={`Back to ${title}`} hitSlop={12} style={{ alignSelf: 'flex-start' }}>
+      <Text style={{ color: t.blue, fontSize: 15, fontWeight: '600' }}>‹ {title}</Text>
+    </Pressable>
+  );
+}
+
+/** Tappable settings-style row. */
+export function ListRow({ title, sub, right, onPress, first }: { title: string; sub?: string; right?: ReactNode; onPress?: () => void; first?: boolean }) {
+  const t = useTheme();
+  return (
+    <Pressable onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined}
+      style={({ pressed }) => [s.row, { borderTopColor: t.border, borderTopWidth: first ? 0 : StyleSheet.hairlineWidth * 2, opacity: pressed ? 0.6 : 1 }]}>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Txt bold numberOfLines={1}>{title}</Txt>
+        {sub ? <Txt muted small numberOfLines={2}>{sub}</Txt> : null}
+      </View>
+      {right ?? (onPress ? <Txt muted>›</Txt> : null)}
+    </Pressable>
+  );
+}

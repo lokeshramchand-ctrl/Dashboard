@@ -14,7 +14,7 @@ function matchMonitor(site: NginxSite, monitors: KumaMonitor[]): KumaMonitor | u
   return monitors.find((m) => names.includes(hostOf(m.url)) || labels.includes(m.name.toLowerCase()));
 }
 
-export default function Sites() {
+export default function Sites({ onBack }: { onBack?: () => void }) {
   const sites = useQuery(api.nginx, 30000);
   const mons = useQuery(api.monitors, 15000);
   const [search, setSearch] = useState('');
@@ -25,7 +25,7 @@ export default function Sites() {
   }, [sites.data, search]);
 
   return (
-    <Screen title="Sites" sub="Read-only view of nginx." queries={[sites, mons]}
+    <Screen title="Nginx sites" sub="Read-only view of nginx." queries={[sites, mons]} back={onBack ? { label: 'More', onPress: onBack } : undefined}
       header={<SearchInput value={search} onChange={setSearch} placeholder="Search domain, upstream or file" />}>
       <Async q={sites} rows={4} h={110} isEmpty={(d) => d.length === 0} empty={{ title: 'No sites', hint: 'No enabled nginx sites were found.' }}>
         {() => list.length === 0

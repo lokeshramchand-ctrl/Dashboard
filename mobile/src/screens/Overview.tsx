@@ -60,7 +60,7 @@ export default function Overview({ go }: { go: (tab: string) => void }) {
 
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.md }}>
                 <Tile label="Guests" value={o.guests.total} sub={`${o.guests.running} running · ${o.guests.stopped} stopped`} onPress={() => go('Guests')} />
-                <Tile label="Nginx sites" value={o.nginx.sites} sub="sites-enabled" onPress={() => go('Sites')} />
+                <Tile label="Nginx sites" value={o.nginx.sites} sub="sites-enabled" onPress={() => go('More')} />
                 <Tile label="Monitors up" value={o.kuma.up} sub={`${o.kuma.pending} pending`} tone="green" onPress={() => go('Uptime')} />
                 <Tile label="Monitors down" value={o.kuma.down} sub={o.kuma.down ? 'Needs attention' : 'All clear'} tone={o.kuma.down ? 'red' : undefined} onPress={() => go('Uptime')} />
               </View>

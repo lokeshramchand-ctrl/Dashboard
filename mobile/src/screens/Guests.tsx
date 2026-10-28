@@ -7,12 +7,19 @@ import { fmtBytes, fmtPct, fmtUptime, sleep } from '../format';
 import { space } from '../theme';
 import type { Guest, GuestAction } from '../types';
 import { useQuery } from '../useQuery';
+import GuestDetail from './GuestDetail';
 
 type Filter = 'all' | 'running' | 'stopped';
 
-const VERB: Record<GuestAction, string> = { start: 'Start', shutdown: 'Shut down', stop: 'Force stop', reboot: 'Reboot' };
+const VERB: Record<GuestAction, string> = { start: 'Start', shutdown: 'Shut down', stop: 'Force stop', reboot: 'Reboot', reset: 'Reset', suspend: 'Pause', resume: 'Resume' };
 
 export default function Guests() {
+  const [open, setOpen] = useState<number | null>(null);
+  if (open !== null) return <GuestDetail vmid={open} onBack={() => setOpen(null)} />;
+  return <GuestList onOpen={setOpen} />;
+}
+
+function GuestList({ onOpen }: { onOpen: (vmid: number) => void }) {
   const q = useQuery(api.guests, 7000);
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
@@ -84,7 +91,7 @@ export default function Guests() {
   }
 
   return (
-    <Screen title="Guests" sub="Containers and virtual machines." queries={[q]}
+    <Screen title="Guests" sub="Tap for details · long-press for power actions." queries={[q]}
       header={
         <View style={{ gap: space.md }}>
           <SearchInput value={search} onChange={setSearch} placeholder="Search name, vmid or tag" />
@@ -100,7 +107,7 @@ export default function Guests() {
           ? <Txt muted style={{ textAlign: 'center', paddingVertical: space.xl }}>No guests match your filters.</Txt>
           : (
             <View style={{ gap: space.md }}>
-              {list.map((g) => <GuestRow key={g.vmid} g={g} pending={busy[g.vmid]} onPress={() => choose(g)} />)}
+              {list.map((g) => <GuestRow key={g.vmid} g={g} pending={busy[g.vmid]} onPress={() => onOpen(g.vmid)} onLongPress={() => choose(g)} />)}
             </View>
           )}
       </Async>
@@ -108,11 +115,11 @@ export default function Guests() {
   );
 }
 
-function GuestRow({ g, pending, onPress }: { g: Guest; pending?: GuestAction; onPress: () => void }) {
+function GuestRow({ g, pending, onPress, onLongPress }: { g: Guest; pending?: GuestAction; onPress: () => void; onLongPress: () => void }) {
   const running = g.status === 'running';
   const mem = g.memMax ? g.memUsed / g.memMax : 0;
   return (
-    <Pressable onPress={onPress} disabled={g.protected || !!pending} accessibilityRole="button" accessibilityLabel={`${g.name}, ${g.status}`}>
+    <Pressable onPress={onPress} onLongPress={g.protected || pending ? undefined : onLongPress} accessibilityRole="button" accessibilityLabel={`${g.name}, ${g.status}`}>
       <Card style={{ gap: space.md, opacity: pending ? 0.7 : 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
           <View style={{ flex: 1 }}>
