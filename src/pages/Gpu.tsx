@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from '../api';
 import { Async, Badge, Card, CardHead, Chips, Icon, Meter, PageHeader } from '../components/ui';
 import { KV, LogList, SINCE } from '../components/Pve';
+import { AskAI, buildPrompt } from '../components/AskAI';
 import { fmtBytes } from '../format';
 import { useQuery } from '../hooks';
 import type { Gpu as GpuT } from '../types';
@@ -24,7 +25,7 @@ export default function Gpu() {
           </>
         )}
       </Async>
-      <div className="toolbar"><span className="section-label grow">Kernel GPU log</span><Chips value={since} onChange={setSince} options={SINCE} /></div>
+      <div className="toolbar"><span className="section-label grow">Kernel GPU log</span><AskAI subject="GPU & passthrough diagnostics" build={() => gpuPrompt(q.data, logs.data)} /><Chips value={since} onChange={setSince} options={SINCE} /></div>
       <Async q={logs} rows={6} h={28} isEmpty={(d) => d.length === 0} empty={{ title: 'No GPU log lines', hint: 'The kernel logged nothing GPU-related in this range.' }}>
         {(lines) => <LogList lines={lines} empty="Passthrough resets and setup messages are normal; faults show here." />}
       </Async>
@@ -87,3 +88,13 @@ function Res({ label, pct, text }: { label: string; pct: number; text: string })
   );
 }
 
+
+function gpuPrompt(d?: import('../types').GpuInfo, lines?: import('../types').LogLine[]): string {
+  return buildPrompt('GPU & PCI passthrough diagnostics', {
+    IOMMU: d ? (d.iommu.enabled ? 'enabled' : 'DISABLED') : undefined,
+    'kernel args': d?.iommu.cmdline.join(' ') || undefined,
+  }, [
+    { title: 'GPUs', body: (d?.gpus ?? []).map((g) => `${g.addr} ${g.vendor} ${g.name} — driver=${g.driver ?? 'none'} (${g.mode}), IOMMU group ${g.iommuGroup ?? '?'}, PCIe ${g.link.speed ?? '?'} x${g.link.width ?? '?'} (max ${g.link.maxSpeed ?? '?'} x${g.link.maxWidth ?? '?'}), assigned: ${g.assignedTo.map((a) => `${a.name}(${a.vmid},${a.status})`).join(', ') || 'host only'}`) },
+    { title: 'Kernel GPU log (newest first)', body: (lines ?? []).slice(0, 100).map((l) => `${l.ts} [${l.level}] ${l.message}`) },
+  ]);
+}

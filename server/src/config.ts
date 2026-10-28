@@ -75,6 +75,13 @@ export const cfg = {
     cpuLimit: Number(env('ALERT_CPU', '0.9')), memLimit: Number(env('ALERT_MEM', '0.92')), diskLimit: Number(env('ALERT_DISK', '0.9')),
   },
 
+  ai: {
+    baseUrl: trim(env('AI_BASE_URL')), // OpenAI-compatible base, e.g. http://10.10.10.x:11434/v1 (Ollama) or https://api.openai.com/v1
+    apiKey: env('AI_API_KEY'), // empty for most local servers (Ollama/LM Studio)
+    model: env('AI_MODEL'), // e.g. llama3.1, qwen2.5-coder, gpt-4o-mini
+    label: env('AI_LABEL'), // display name, e.g. "Ollama · llama3.1"
+  },
+
   frameSrc: env('FRAME_SRC').split(/\s+/).filter(Boolean), // origins the UI may embed (Grafana, Kuma status page)
 };
 
@@ -83,3 +90,4 @@ export const grafanaConfigured = () => !!(cfg.grafanaUrl && cfg.grafanaToken);
 export const keycloakConfigured = () => !!(cfg.keycloak.issuer && cfg.keycloak.clientId && cfg.keycloak.redirectUri);
 export const kumaConfigured = () => !!(cfg.kumaUrl && cfg.kumaApiKey);
 export const ntfyConfigured = () => !!(cfg.ntfy.url && cfg.ntfy.topic);
+export const aiConfigured = () => !!(cfg.ai.baseUrl && cfg.ai.model);

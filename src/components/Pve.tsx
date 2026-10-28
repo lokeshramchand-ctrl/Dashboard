@@ -7,6 +7,7 @@ import type { Query } from '../hooks';
 import type { LogKind, LogLine, PveTask, Recurring, RrdPoint, Timeframe } from '../types';
 import { LineChart } from './MetricChart';
 import { Async, Badge, Card, CardHead, Chips, EmptyState, Icon, Modal, Skeleton, Spinner } from './ui';
+import { AskAI, buildPrompt } from './AskAI';
 import type { Tone } from './ui';
 
 export const TIMEFRAMES: { id: Timeframe; label: string }[] = [
@@ -98,7 +99,12 @@ export function TaskLogModal({ task, onClose }: { task: PveTask; onClose: () => 
   const running = task.status === 'running';
   const q = useQuery(() => api.taskLog(task.upid), [task.upid], running ? 2000 : 0);
   return (
-    <Modal wide title={taskName(task)} onClose={onClose} footer={<button className="btn" onClick={onClose}>Close</button>}>
+    <Modal wide title={taskName(task)} onClose={onClose} footer={
+      <>
+        {(task.status === 'error' || task.status === 'warning') && <AskAI subject={`Proxmox task failure: ${taskName(task)}`} build={() => buildPrompt(`Proxmox task ${taskName(task)} — ${task.status}`, { type: task.type, id: task.id, user: task.user, status: task.status, message: task.message }, [{ title: 'Task log', body: (q.data ?? []) }])} />}
+        <button className="btn" onClick={onClose}>Close</button>
+      </>
+    }>
       <div className="task-meta">
         <Badge tone={TASK_TONE[task.status]} dot>{task.status}</Badge>
         <span className="muted small">{new Date(task.start * 1000).toLocaleString()} · {task.user} · {dur(task)}</span>

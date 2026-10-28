@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from '../api';
 import { Async, Chips, PageHeader } from '../components/ui';
 import { LogList, RecurringTable, SINCE, TaskTable } from '../components/Pve';
+import { AskAI, buildPrompt } from '../components/AskAI';
 import { useQuery } from '../hooks';
 import type { Query } from '../hooks';
 import type { PveTask } from '../types';
@@ -22,7 +23,7 @@ export default function Diagnostics() {
   return (
     <>
       <PageHeader eyebrow="Monitoring" title="Diagnostics" sub="Everything that failed on the host and its guests: crashes, failed starts, OOM kills, GPU and hardware errors, grouped so repeat offenders stand out."
-        actions={<Chips value={since} onChange={setSince} options={SINCE} />} />
+        actions={<><AskAI subject={`Host-wide failures (last ${since})`} build={() => diagPrompt(since, q.data)} /><Chips value={since} onChange={setSince} options={SINCE} /></>} />
       <Async q={q} rows={2} h={110}>
         {(d) => (
           <>
@@ -54,4 +55,15 @@ export default function Diagnostics() {
       </Async>
     </>
   );
+}
+
+function diagPrompt(since: string, d?: { byKind: Record<string, number>; recurring: { unit: string; kind: string; count: number; sample: string }[]; failedTasks: { message: string }[]; lines: { level: string; ts: string; unit: string; message: string }[] }): string {
+  if (!d) return `# Host failures\n\n(no data loaded yet)`;
+  return buildPrompt(`Proxmox host — failures across the node, last ${since}`,
+    Object.fromEntries(Object.entries(d.byKind).map(([k, v]) => [k, v])),
+    [
+      { title: 'Recurring problems (by count)', body: d.recurring.slice(0, 20).map((r) => `${r.count}x [${r.kind}] ${r.unit}: ${r.sample}`) },
+      { title: 'Failed Proxmox tasks', body: d.failedTasks.slice(0, 20).map((t) => t.message) },
+      { title: 'Failure log (newest first)', body: d.lines.slice(0, 100).map((l) => `${l.ts} [${l.level}] ${l.unit}: ${l.message}`) },
+    ]);
 }
