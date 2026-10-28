@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-# ---- web UI (real backend, mock off) ----
+# ---- web UI ----
 FROM node:22-alpine AS web
 WORKDIR /web
 COPY package.json package-lock.json ./
@@ -8,7 +8,7 @@ RUN npm ci
 COPY index.html tsconfig.json vite.config.ts ./
 COPY public ./public
 COPY src ./src
-RUN npm run build:prod
+RUN npm run build
 
 # ---- backend ----
 FROM node:22-alpine AS api

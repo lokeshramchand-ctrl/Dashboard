@@ -5,9 +5,8 @@ SPL Console (homelab dashboard): a React UI plus a Fastify backend that controls
 ## Layout
 
 ```
-/                  React + Vite + TS UI  (npm run dev | build | build:prod)
+/                  React + Vite + TS UI  (npm run dev | build)
   src/api.ts       the only place the UI calls the backend (/api/..., relative URLs)
-  src/mock.ts      in-browser mock of the whole API (fetch + EventSource patch)
   src/pages/       Overview, Guests, Nginx, Grafana, Kuma, Login
   public/config.json   runtime config (kumaStatusUrl, grafanaUrl), edit without rebuilding
 server/            Fastify backend (TypeScript, compiled on the dev PC)
@@ -24,7 +23,7 @@ docker-compose.yml app + MongoDB; Dockerfile builds UI + backend into one image
 
 ## Commands
 
-- UI: `npm install`, `npm run dev`, `npm run build` (mock API ON, standalone demo, password `demo`), `npm run build:prod` (mock OFF, real backend)
+- UI: `npm install`, `npm run dev` (proxies `/api` to `API_TARGET`, default `http://127.0.0.1:3000`), `npm run build`
 - Backend: `cd server && npm install && npm run build`; `npm run create-user -- <name>`; `npm start` (needs `server/.env`, copy from `.env.example`)
 - Mobile: `cd mobile && npm install && npm run typecheck`; `npm start` (Expo). It signs in with the same cookie session; the server URL is entered on the login screen.
 - Docker: `cp .env.example .env && docker compose up -d --build`, then `docker compose run --rm app node build/create-user.js <name>`.

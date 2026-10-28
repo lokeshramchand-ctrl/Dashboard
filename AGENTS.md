@@ -19,12 +19,12 @@ The backend controls Proxmox guests and reads nginx, Grafana and Uptime Kuma. Th
 Run these before declaring work done. All must pass.
 
 ```sh
-npm ci && npm run build            # web UI: typecheck + build (mock API on)
+npm ci && npm run build            # web UI: typecheck + build
 cd server && npm ci && npm run build   # backend typecheck + compile
 cd mobile && npm ci && npm run typecheck   # mobile typecheck
 ```
 
-`npm run dev` starts the web UI with the in-browser mock API (login password `demo`), so UI work needs no backend.
+`npm run dev` starts the web UI and proxies `/api` to a running backend (`API_TARGET`, default `http://127.0.0.1:3000`).
 
 ## Hard rules (do not break)
 
@@ -33,7 +33,7 @@ cd mobile && npm ci && npm run typecheck   # mobile typecheck
 3. **Guest actions** must honour `ALLOWED_VMIDS` and `PROTECTED_VMIDS` and write an `audit` document for every attempt.
 4. **Errors are `{error, code}`** with a real HTTP status. Missing integration config is `503 NOT_CONFIGURED` (except `/api/overview`, which degrades to zeros).
 5. **No hardcoded hosts.** Web uses root-relative `/api/...`; mobile takes the server URL from user settings.
-6. **Contract changes** (field names, units) must update `API_NOTES.md`, `src/types.ts`, `mobile/src/types.ts` and `src/mock.ts` together.
+6. **Contract changes** (field names, units) must update `API_NOTES.md`, `src/types.ts`, and `mobile/src/types.ts` together.
 7. **Every data panel** has loading, error and empty states (web and mobile).
 8. **Never commit secrets.** `.env` files are git-ignored; only `.env.example` is tracked.
 

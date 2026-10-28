@@ -15,7 +15,7 @@ const SSO_ERRORS: Record<string, string> = {
   ROLE_MISSING: 'This Keycloak account lacks the required role.',
 };
 
-export default function Login({ onLogin, demo }: { onLogin: (u: string) => void; demo: boolean }) {
+export default function Login({ onLogin }: { onLogin: (u: string) => void }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -68,7 +68,6 @@ export default function Login({ onLogin, demo }: { onLogin: (u: string) => void;
                 <a className="btn btn-lg" href="/api/auth/sso/login"><Icon name="lock" size={16} />Sign in with {sso.label}</a>
               </>
             )}
-            {demo && <p className="muted small demo-hint">Demo mode: any username, password <code>demo</code>.</p>}
           </form>
         </Reveal>
       </InView>

@@ -17,14 +17,12 @@ A single-user dashboard for a homelab: start/stop Proxmox guests, see nginx site
 - **Uptime**: monitors, heartbeats and incidents derived from Kuma `/metrics`.
 - Light and dark themes, responsive down to phone width, command palette (`Ctrl/Cmd + K`).
 
-## Quick start (demo, no backend)
+## Develop
 
 ```sh
 npm install
-npm run dev        # http://localhost:5173, password: demo
+API_TARGET=http://127.0.0.1:3000 npm run dev   # proxies /api to a running backend
 ```
-
-The web build ships with an in-browser mock of the whole API.
 
 ## Run with Docker
 
@@ -41,7 +39,7 @@ Open `http://localhost:3000`. The compose file runs the app next to MongoDB. Put
 ## Run without Docker
 
 ```sh
-npm install && npm run build:prod          # UI -> dist/
+npm install && npm run build               # UI -> dist/
 cd server && npm install && npm run build
 cp .env.example .env                       # edit
 npm run create-user -- admin
