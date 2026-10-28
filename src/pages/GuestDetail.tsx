@@ -3,6 +3,7 @@ import { api } from '../api';
 import { Async, Badge, Card, CardHead, Chips, EmptyState, HoldButton, Icon, Menu, Meter, Modal, PageHeader, Spinner } from '../components/ui';
 import type { IconName } from '../components/ui';
 import { kindBadge, KV, tidy, LogList, RecurringTable, RrdCard, SINCE, TaskTable, TimeframePicker } from '../components/Pve';
+import { AskAI, buildPrompt } from '../components/AskAI';
 import { fmtBytes, fmtPct, fmtUptime, sleep } from '../format';
 import { useGuestEvents, useQuery, useToast } from '../hooks';
 import type { ConfigRow, GuestAction, GuestStatusDetail, Timeframe } from '../types';
@@ -246,7 +247,7 @@ function GuestLogsTab({ vmid }: { vmid: number }) {
   const tasks = { ...q, data: q.data?.failedTasks, mutate: () => {} };
   return (
     <>
-      <div className="toolbar"><span className="section-label grow">Failure analysis</span><Chips value={since} onChange={setSince} options={SINCE} /></div>
+      <div className="toolbar"><span className="section-label grow">Failure analysis</span><AskAI subject={`Guest ${vmid} failure analysis`} build={() => guestPrompt(vmid, q.data)} /><Chips value={since} onChange={setSince} options={SINCE} /></div>
       <Async q={q} rows={3} h={90}>
         {(d) => (
           <>
@@ -293,4 +294,21 @@ function GuestLogsTab({ vmid }: { vmid: number }) {
       </Async>
     </>
   );
+}
+
+function guestPrompt(vmid: number, d?: { type: string; since: string; counts: Record<string, number>; passthrough: string[]; reason: string | null; lastFailure: { kind: string; message: string; ts: string } | null; recurring: { unit: string; kind: string; count: number; sample: string }[]; timeline: { kind: string; ts: string; message: string }[]; failedTasks: { message: string; start: number }[]; lines: { level: string; ts: string; unit: string; message: string }[] }): string {
+  if (!d) return `# Guest ${vmid}\n\n(no data loaded yet)`;
+  return buildPrompt(`Proxmox guest ${vmid} (${d.type}) — failure analysis, last ${d.since}`, {
+    type: d.type,
+    'errors / warnings': `${d.counts.error ?? 0} / ${d.counts.warn ?? 0}`,
+    'failed tasks': d.failedTasks.length,
+    passthrough: d.passthrough.join(', ') || undefined,
+    'likely cause': d.reason || undefined,
+  }, [
+    { title: 'Last failure', body: d.lastFailure ? `[${d.lastFailure.kind}] ${d.lastFailure.ts}\n${d.lastFailure.message}` : '' },
+    { title: 'Recurring problems', body: d.recurring.slice(0, 10).map((r) => `${r.count}x [${r.kind}] ${r.unit}: ${r.sample}`) },
+    { title: 'Lifecycle (newest first)', body: d.timeline.slice(0, 20).map((l) => `${l.ts} [${l.kind}] ${l.message}`) },
+    { title: 'Failed tasks', body: d.failedTasks.slice(0, 15).map((t) => t.message) },
+    { title: 'Recent journal (problems first)', body: [...d.lines].sort((a, b) => (a.level === 'error' ? -1 : 1) - (b.level === 'error' ? -1 : 1)).slice(0, 80).map((l) => `${l.ts} [${l.level}] ${l.unit}: ${l.message}`) },
+  ]);
 }

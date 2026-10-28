@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 import type { Query } from '../hooks';
 import { InView, Reveal, RevealWords } from './Reveal';
@@ -36,6 +37,8 @@ const P: Record<string, string> = {
   inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.5 5h13l3.5 7v6a2 2 0 01-2 2H4a2 2 0 01-2-2v-6z',
   grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
   list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+  sparkles: 'M12 3l1.8 4.8L18.6 9.6 13.8 11.4 12 16.2 10.2 11.4 5.4 9.6 10.2 7.8zM19 14l.9 2.4 2.4.9-2.4.9L19 20.6l-.9-2.4-2.4-.9 2.4-.9zM5 14l.7 1.9 1.9.7-1.9.7L5 19.2l-.7-1.9L2.4 16.6l1.9-.7z',
+  copy: 'M9 9h10a1 1 0 011 1v10a1 1 0 01-1 1H9a1 1 0 01-1-1V10a1 1 0 011-1zM5 15H4a1 1 0 01-1-1V4a1 1 0 011-1h10a1 1 0 011 1v1',
   play: 'M7 4.5v15l12-7.5z',
   pause: 'M8 5v14M16 5v14',
   camera: 'M4 8h3l2-3h6l2 3h3a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1zM12 17a4 4 0 100-8 4 4 0 000 8z',
@@ -213,14 +216,17 @@ export function Modal({ title, children, onClose, footer, wide }: { title: strin
     window.addEventListener('keydown', f);
     return () => window.removeEventListener('keydown', f);
   }, [onClose]);
-  return (
+  // Portal to <body>: a transformed ancestor (e.g. a Reveal animation) would otherwise trap
+  // the position:fixed scrim and shrink the dialog.
+  return createPortal(
     <div className="scrim" onMouseDown={onClose}>
       <div className={`modal ${wide ? 'modal-wide' : ''}`} role="dialog" aria-modal="true" aria-label={title} onMouseDown={(e) => e.stopPropagation()}>
         <h3>{title}</h3>
         <div className="modal-body">{children}</div>
         <div className="modal-foot">{footer}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

@@ -1,7 +1,7 @@
 import type {
   AppConfig, Guest, GuestAction, GrafanaDashboard, GrafanaPanel, KumaIncident, KumaMonitor,
   JournalLine, LogSummary, NginxSite, Overview, PromResult, SsoConfig, SystemEvent, Task,
-  ConfigRow, Diagnostics, Disk, GpuInfo, GuestLogs, LogLine, Sensor, NotifyInfo, NotifySettings, GuestStatusDetail, NetIface, NodeInfo, PveTask, RrdPoint, Service, Snapshot, Storage, Timeframe,
+  AiInfo, ConfigRow, Diagnostics, Disk, GpuInfo, GuestLogs, LogLine, Sensor, NotifyInfo, NotifySettings, GuestStatusDetail, NetIface, NodeInfo, PveTask, RrdPoint, Service, Snapshot, Storage, Timeframe,
 } from './types';
 
 export class ApiError extends Error {
@@ -76,6 +76,8 @@ export const api = {
   gpuLogs: (since: string) => get<LogLine[]>(`/gpu/logs?since=${since}`),
   sensors: () => get<Sensor[]>('/node/sensors'),
   diagnostics: (since: string) => get<Diagnostics>(`/diagnostics?since=${since}`),
+  ai: () => get<AiInfo>('/ai'),
+  aiAsk: (context: string, question: string) => post<{ answer: string; model: string }>('/ai/ask', { context, question }),
   notify: () => get<NotifyInfo>('/notify'),
   notifySettings: (s: Partial<NotifySettings>) => post<NotifySettings>('/notify/settings', s),
   notifyTest: () => post<{ ok: true }>('/notify/test'),

@@ -147,3 +147,4 @@ export interface Gpu {
 export interface GpuInfo { iommu: { enabled: boolean; cmdline: string[] }; gpus: Gpu[] }
 export interface Sensor { chip: string; label: string; kind: 'temp' | 'fan' | 'power' | 'voltage'; value: number; unit: string; max: number | null; crit: number | null }
 export interface Diagnostics { since: string; failedTasks: PveTask[]; byKind: Record<string, number>; guestHits: Record<string, number>; recurring: Recurring[]; lines: LogLine[] }
+export interface AiInfo { configured: boolean; label: string; model: string; local: boolean }

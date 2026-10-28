@@ -11,6 +11,7 @@ import { registerGuests } from './guests.js';
 import { registerKuma, startKuma } from './kuma.js';
 import { recordCleanStop, registerLogs, startEvents } from './events.js';
 import { registerNginx } from './nginx.js';
+import { registerAi } from './ai.js';
 import { registerDiagnostics } from './diagnostics.js';
 import { registerNode } from './node.js';
 import { registerNotify, startNotify } from './notify.js';
@@ -34,10 +35,12 @@ app.setNotFoundHandler((req, reply) => reply.code(404).send({ error: `No route f
 
 const csp = [
   "default-src 'self'",
-  "script-src 'self'",
+  // The hash covers the inline theme-bootstrap in index.html (prevents a theme flash). It must
+  // match that script's exact bytes; if that script changes, update this hash.
+  "script-src 'self' 'sha256-PL8BUHH3EqfFPbHYkB9eG/+gE1CS5DfaL0WPuyX5x8Q='",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
-  "font-src 'self'",
+  "font-src 'self' data:", // Vite inlines small font subsets as data: URIs
   "connect-src 'self'",
   `frame-src 'self' ${[cfg.grafanaPublicUrl, ...cfg.frameSrc].filter(Boolean).join(' ')}`,
   "frame-ancestors 'none'",
@@ -69,6 +72,7 @@ registerOverview(app);
 registerGuests(app);
 registerNode(app);
 registerDiagnostics(app);
+registerAi(app);
 registerNotify(app);
 registerNginx(app);
 registerGrafana(app);
