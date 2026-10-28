@@ -40,20 +40,17 @@ const SEARCH_HINT: Record<string, string> = {
   grafana: 'Search dashboards, folders or tags…', kuma: 'Search monitors…', logs: 'Filter messages…', gpu: 'Search…', diagnostics: 'Search…', notifications: 'Search…',
 };
 
-const AVATAR_COUNT = 12;
-/** Stable per-user avatar: a hash of the username picks one of the bundled pictures, so a
- *  given user always gets the same random-looking display picture across sessions. */
-function avatarFor(user: string): string {
+// Flat brand colours; a stable hash of the username picks one, so each user keeps the same
+// solid-colour monogram across sessions. No gradients — just the initials, cleanly set.
+const AVATAR_COLORS = ['#ed272e', '#0870b9', '#3eb850', '#5a6fc9', '#0b7a8c', '#c27a16'];
+function avatarColor(user: string): string {
   let h = 0;
   for (let i = 0; i < user.length; i++) h = (h * 31 + user.charCodeAt(i)) >>> 0;
-  return `avatars/a${(h % AVATAR_COUNT) + 1}.svg`;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
 
 function Avatar({ user }: { user: string }) {
-  const [broken, setBroken] = useState(false);
-  const initials = user.slice(0, 2).toUpperCase();
-  if (broken) return <span className="avatar">{initials}</span>;
-  return <img className="avatar avatar-img" src={avatarFor(user)} alt="" aria-hidden="true" onError={() => setBroken(true)} />;
+  return <span className="avatar" style={{ background: avatarColor(user) }}>{user.slice(0, 2).toUpperCase()}</span>;
 }
 
 export default function App() {
@@ -152,8 +149,10 @@ function Shell({ user, config, onLogout }: { user: string; config: AppConfig; on
       <div className={`app ${collapsed ? 'mini' : ''} ${menu ? 'drawer' : ''}`}>
         <aside className="side" aria-label="Primary">
           <div className="side-brand">
-            <a href="#/overview" aria-label="SPL Systems, overview"><Logo /></a>
-            <span className="side-env">Console</span>
+            <a href="#/overview" aria-label="SPL Systems, overview" className="side-logo">
+              <Logo className="side-wordmark" />
+              <img className="side-mark" src="./brand/favicon.svg" alt="" aria-hidden="true" width={30} height={30} />
+            </a>
           </div>
           <nav className="side-nav">
             {GROUPS.map((grp) => (
