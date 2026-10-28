@@ -10,7 +10,7 @@ export interface Query<T> {
 }
 
 /** Fetch with optional polling. Keeps stale data on refresh; polling pauses while the app is backgrounded. */
-export function useQuery<T>(fn: () => Promise<T>, interval = 0): Query<T> {
+export function useQuery<T>(fn: () => Promise<T>, interval = 0, deps: unknown[] = []): Query<T> {
   const [state, setState] = useState<{ data?: T; error?: Error; loading: boolean; refreshing: boolean }>({ loading: true, refreshing: false });
   const fnRef = useRef(fn);
   fnRef.current = fn;
@@ -30,7 +30,8 @@ export function useQuery<T>(fn: () => Promise<T>, interval = 0): Query<T> {
     alive.current = true;
     load();
     return () => { alive.current = false; };
-  }, [load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load, ...deps]);
 
   useEffect(() => {
     if (!interval) return;

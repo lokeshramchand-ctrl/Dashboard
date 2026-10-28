@@ -1,11 +1,24 @@
+import { useState } from 'react';
 import { Alert, Linking, Pressable, View } from 'react-native';
 import { api } from '../api';
-import { Async, Badge, Button, Card, Screen, Txt } from '../components/ui';
+import { Async, Badge, Button, Card, ListRow, Screen, SectionTitle, Txt } from '../components/ui';
+import Notifications from './Notifications';
+import Sites from './Sites';
+import Tasks from './Tasks';
 import { useSession } from '../session';
 import { space } from '../theme';
 import { useQuery } from '../useQuery';
 
 export default function More() {
+  const [view, setView] = useState<'menu' | 'sites' | 'tasks' | 'notifications'>('menu');
+  const back = () => setView('menu');
+  if (view === 'sites') return <Sites onBack={back} />;
+  if (view === 'tasks') return <Tasks onBack={back} />;
+  if (view === 'notifications') return <Notifications onBack={back} />;
+  return <Menu go={setView} />;
+}
+
+function Menu({ go }: { go: (v: 'sites' | 'tasks' | 'notifications') => void }) {
   const { user, serverUrl, signOut } = useSession();
   const dash = useQuery(api.dashboards, 0);
 
@@ -18,6 +31,12 @@ export default function More() {
 
   return (
     <Screen title="More" queries={[dash]}>
+      <Card style={{ paddingVertical: 0 }}>
+        <ListRow first title="Task log" sub="Proxmox tasks and their logs" onPress={() => go('tasks')} />
+        <ListRow title="Nginx sites" sub="Sites enabled on the proxy" onPress={() => go('sites')} />
+        <ListRow title="Notifications" sub="ntfy push alerts and rules" onPress={() => go('notifications')} />
+      </Card>
+      <SectionTitle>Account</SectionTitle>
       <Card style={{ gap: space.sm }}>
         <Txt muted small>Signed in as</Txt>
         <Txt bold>{user}</Txt>
@@ -27,7 +46,7 @@ export default function More() {
       </Card>
 
       <View style={{ gap: space.md }}>
-        <Txt bold>Grafana dashboards</Txt>
+        <SectionTitle>Grafana dashboards</SectionTitle>
         <Async q={dash} rows={3} h={64} isEmpty={(d) => d.length === 0} empty={{ title: 'No dashboards', hint: 'Grafana returned no dashboards, or it is not configured.' }}>
           {(list) => (
             <View style={{ gap: space.md }}>

@@ -1,5 +1,6 @@
 import type {
   Guest, GuestAction, GrafanaDashboard, KumaIncident, KumaMonitor, NginxSite, Overview, Task,
+  ConfigRow, Disk, GuestStatusDetail, NodeInfo, NotifyInfo, NotifySettings, PveTask, RrdPoint, Service, Snapshot, Timeframe,
 } from './types';
 
 export class ApiError extends Error {
@@ -60,4 +61,18 @@ export const api = {
   dashboards: () => get<GrafanaDashboard[]>('/grafana/dashboards'),
   monitors: () => get<KumaMonitor[]>('/kuma/monitors'),
   incidents: () => get<KumaIncident[]>('/kuma/incidents'),
+  guestStatus: (vmid: number) => get<GuestStatusDetail>(`/guests/${vmid}/status`),
+  guestConfig: (vmid: number) => get<ConfigRow[]>(`/guests/${vmid}/config`),
+  guestRrd: (vmid: number, tf: Timeframe) => get<RrdPoint[]>(`/guests/${vmid}/rrd?timeframe=${tf}`),
+  snapshots: (vmid: number) => get<Snapshot[]>(`/guests/${vmid}/snapshots`),
+  node: () => get<NodeInfo>('/node'),
+  nodeRrd: (tf: Timeframe) => get<RrdPoint[]>(`/node/rrd?timeframe=${tf}`),
+  disks: () => get<Disk[]>('/node/disks'),
+  services: () => get<Service[]>('/node/services'),
+  tasks: (p: { vmid?: number; errors?: boolean; limit?: number } = {}) =>
+    get<PveTask[]>(`/tasks?limit=${p.limit ?? 100}${p.vmid ? `&vmid=${p.vmid}` : ''}${p.errors ? '&errors=1' : ''}`),
+  taskLog: (id: string) => get<string[]>(`/tasks/${encodeURIComponent(id)}/log`),
+  notify: () => get<NotifyInfo>('/notify'),
+  notifySettings: (s: Partial<NotifySettings>) => post<NotifySettings>('/notify/settings', s),
+  notifyTest: () => post<{ ok: true }>('/notify/test'),
 };

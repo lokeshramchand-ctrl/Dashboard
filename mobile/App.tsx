@@ -6,9 +6,9 @@ import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Guests from './src/screens/Guests';
 import Login from './src/screens/Login';
+import Node from './src/screens/Node';
 import More from './src/screens/More';
 import Overview from './src/screens/Overview';
-import Sites from './src/screens/Sites';
 import Uptime from './src/screens/Uptime';
 import { SessionProvider, useSession } from './src/session';
 import { useTheme } from './src/theme';
@@ -16,7 +16,7 @@ import { useTheme } from './src/theme';
 const Tab = createBottomTabNavigator();
 
 const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
-  Overview: 'speedometer-outline', Guests: 'server-outline', Uptime: 'pulse-outline', Sites: 'globe-outline', More: 'ellipsis-horizontal',
+  Overview: 'speedometer-outline', Guests: 'server-outline', Uptime: 'pulse-outline', Node: 'hardware-chip-outline', More: 'ellipsis-horizontal',
 };
 
 function OverviewTab() {
@@ -38,8 +38,8 @@ function Tabs() {
     >
       <Tab.Screen name="Overview" component={OverviewTab} />
       <Tab.Screen name="Guests" component={Guests} />
+      <Tab.Screen name="Node" component={Node} />
       <Tab.Screen name="Uptime" component={Uptime} />
-      <Tab.Screen name="Sites" component={Sites} />
       <Tab.Screen name="More" component={More} />
     </Tab.Navigator>
   );
