@@ -71,3 +71,7 @@ Backend deviations from the contract: Kuma `incidents[].message` is generic (`Mo
 - `metrics.*`: `{avg, p95, max, samples}`; cpu is a 0..1 fraction, memory/net/disk in bytes (per second for net/disk). `cpuSaturatedPct` is a 0..1 fraction of samples at >=95% CPU.
 - Journal retention limits the window; `since` beyond what the journal keeps returns what exists. Read-only: only agent GET endpoints are called.
 
+## Host power (kill switch)
+
+- `GET /host/power` -> `{enabled, node}`. `enabled` mirrors `HOST_POWER_ENABLED`; the UI hides the kill switch card when false.
+- `POST /host/shutdown` body `{confirm: "<node name>"}` -> `{ok:true}`. Calls Proxmox `POST /nodes/<node>/status command=shutdown` (token needs `Sys.PowerMgmt`). `503 NOT_CONFIGURED` when disabled, `400 BAD_CONFIRM` when the name does not match. Audited as `action: host-shutdown`, `vmid: 0`. There is no power-on endpoint: the dashboard runs on the host.
