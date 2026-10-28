@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Alert, Linking, Pressable, View } from 'react-native';
 import { api } from '../api';
 import { Async, Badge, Button, Card, ListRow, Screen, SectionTitle, Txt } from '../components/ui';
+import Diagnostics from './Diagnostics';
+import Gpu from './Gpu';
 import Notifications from './Notifications';
 import Sites from './Sites';
 import Tasks from './Tasks';
@@ -10,15 +12,19 @@ import { space } from '../theme';
 import { useQuery } from '../useQuery';
 
 export default function More() {
-  const [view, setView] = useState<'menu' | 'sites' | 'tasks' | 'notifications'>('menu');
+  const [view, setView] = useState<'menu' | Sub>('menu');
   const back = () => setView('menu');
   if (view === 'sites') return <Sites onBack={back} />;
   if (view === 'tasks') return <Tasks onBack={back} />;
   if (view === 'notifications') return <Notifications onBack={back} />;
+  if (view === 'gpu') return <Gpu onBack={back} />;
+  if (view === 'diagnostics') return <Diagnostics onBack={back} />;
   return <Menu go={setView} />;
 }
 
-function Menu({ go }: { go: (v: 'sites' | 'tasks' | 'notifications') => void }) {
+type Sub = 'sites' | 'tasks' | 'notifications' | 'gpu' | 'diagnostics';
+
+function Menu({ go }: { go: (v: Sub) => void }) {
   const { user, serverUrl, signOut } = useSession();
   const dash = useQuery(api.dashboards, 0);
 
@@ -32,7 +38,9 @@ function Menu({ go }: { go: (v: 'sites' | 'tasks' | 'notifications') => void }) 
   return (
     <Screen title="More" queries={[dash]}>
       <Card style={{ paddingVertical: 0 }}>
-        <ListRow first title="Task log" sub="Proxmox tasks and their logs" onPress={() => go('tasks')} />
+        <ListRow first title="Diagnostics" sub="Crashes, failed starts, OOM, GPU and hardware errors" onPress={() => go('diagnostics')} />
+        <ListRow title="GPU & passthrough" sub="GPU owner, IOMMU, PCIe link, kernel GPU log" onPress={() => go('gpu')} />
+        <ListRow title="Task log" sub="Proxmox tasks and their logs" onPress={() => go('tasks')} />
         <ListRow title="Nginx sites" sub="Sites enabled on the proxy" onPress={() => go('sites')} />
         <ListRow title="Notifications" sub="ntfy push alerts and rules" onPress={() => go('notifications')} />
       </Card>

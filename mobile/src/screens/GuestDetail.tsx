@@ -9,8 +9,9 @@ import type { GuestAction, GuestStatusDetail, Timeframe } from '../types';
 import { useQuery } from '../useQuery';
 import { Res, TIMEFRAMES } from './Node';
 import { TaskList } from './Tasks';
+import { LogLines, RecurringList, SINCE, tidy } from './Diagnostics';
 
-type Tab = 'summary' | 'config' | 'snapshots' | 'tasks';
+type Tab = 'summary' | 'config' | 'snapshots' | 'tasks' | 'logs';
 const VERB: Record<GuestAction, string> = { start: 'Start', shutdown: 'Shut down', stop: 'Force stop', reboot: 'Reboot', reset: 'Reset', suspend: 'Pause', resume: 'Resume' };
 const WARN: Partial<Record<GuestAction, string>> = {
   stop: 'Cuts power immediately and may corrupt data inside the guest.',
@@ -92,7 +93,7 @@ export default function GuestDetail({ vmid, onBack }: { vmid: number; onBack: ()
               {(on || g.status === 'paused') && <View style={{ width: 110 }}><Button title="More…" disabled={!!busy} onPress={() => more(g)} /></View>}
             </View>
           )}
-          <Chips value={tab} onChange={setTab} options={[{ id: 'summary', label: 'Summary' }, { id: 'config', label: g.type === 'qemu' ? 'Hardware' : 'Resources' }, { id: 'snapshots', label: 'Snapshots' }, { id: 'tasks', label: 'Tasks' }]} />
+          <Chips value={tab} onChange={setTab} options={[{ id: 'summary', label: 'Summary' }, { id: 'config', label: g.type === 'qemu' ? 'Hardware' : 'Resources' }, { id: 'snapshots', label: 'Snapshots' }, { id: 'tasks', label: 'Tasks' }, { id: 'logs', label: 'Logs' }]} />
         </View>
       ) : null}>
       {st.data === undefined && st.error ? <StateView error title="Couldn't load this guest" hint={st.error.message} onRetry={st.reload} /> : null}
@@ -149,6 +150,42 @@ export default function GuestDetail({ vmid, onBack }: { vmid: number; onBack: ()
         </Async>
       )}
       {tab === 'tasks' && <TaskList q={tasks} />}
+      {tab === 'logs' && <GuestLogsView vmid={vmid} />}
     </Screen>
+  );
+}
+
+function GuestLogsView({ vmid }: { vmid: number }) {
+  const [since, setSince] = useState('7d');
+  const q = useQuery(() => api.guestLogs(vmid, since), 30_000, [vmid, since]);
+  return (
+    <>
+      <Chips value={since} onChange={setSince} options={SINCE} />
+      <Async q={q} rows={3} h={80}>
+        {(d) => (
+          <>
+            <Card style={{ gap: space.sm, borderLeftWidth: 3, borderLeftColor: d.lastFailure ? '#ed272e' : '#3eb850' }}>
+              <Txt bold>{d.lastFailure ? 'Last failure' : 'No failures'}</Txt>
+              {d.lastFailure ? (
+                <>
+                  <Txt small bold>{d.reason}</Txt>
+                  <Txt muted small>{new Date(d.lastFailure.ts).toLocaleString()}</Txt>
+                  <Txt small style={{ fontFamily: 'Courier' }}>{tidy(d.lastFailure.message)}</Txt>
+                </>
+              ) : <Txt muted small>{`Nothing failed in the last ${since}.`}</Txt>}
+              <Txt muted small>{`${d.counts.error} errors · ${d.counts.warn} warnings · ${d.failedTasks.length} failed tasks`}</Txt>
+            </Card>
+            {d.recurring.length ? <><SectionTitle>Recurring problems</SectionTitle><RecurringList rows={d.recurring} /></> : null}
+            <SectionTitle>Lifecycle</SectionTitle>
+            <Card style={{ paddingVertical: 0 }}>
+              {d.timeline.slice(0, 12).map((l, i) => <ListRow key={i} first={i === 0} title={tidy(l.message)} sub={new Date(l.ts).toLocaleString()} right={<Badge tone={l.level === 'error' ? 'red' : l.kind === 'start' ? 'green' : 'gray'}>{l.kind}</Badge>} />)}
+              {d.timeline.length === 0 ? <ListRow first title="No lifecycle events" /> : null}
+            </Card>
+            <SectionTitle>Journal</SectionTitle>
+            <LogLines lines={d.lines} />
+          </>
+        )}
+      </Async>
+    </>
   );
 }

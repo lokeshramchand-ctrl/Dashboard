@@ -1,6 +1,6 @@
 import type {
   Guest, GuestAction, GrafanaDashboard, KumaIncident, KumaMonitor, NginxSite, Overview, Task,
-  ConfigRow, Disk, GuestStatusDetail, NodeInfo, NotifyInfo, NotifySettings, PveTask, RrdPoint, Service, Snapshot, Timeframe,
+  ConfigRow, Diagnostics, Disk, GpuInfo, GuestLogs, GuestStatusDetail, LogLine, NodeInfo, NotifyInfo, NotifySettings, PveTask, RrdPoint, Service, Snapshot, Timeframe,
 } from './types';
 
 export class ApiError extends Error {
@@ -72,6 +72,10 @@ export const api = {
   tasks: (p: { vmid?: number; errors?: boolean; limit?: number } = {}) =>
     get<PveTask[]>(`/tasks?limit=${p.limit ?? 100}${p.vmid ? `&vmid=${p.vmid}` : ''}${p.errors ? '&errors=1' : ''}`),
   taskLog: (id: string) => get<string[]>(`/tasks/${encodeURIComponent(id)}/log`),
+  guestLogs: (vmid: number, since: string) => get<GuestLogs>(`/guests/${vmid}/logs?since=${since}`),
+  gpu: () => get<GpuInfo>('/gpu'),
+  gpuLogs: (since: string) => get<LogLine[]>(`/gpu/logs?since=${since}`),
+  diagnostics: (since: string) => get<Diagnostics>(`/diagnostics?since=${since}`),
   notify: () => get<NotifyInfo>('/notify'),
   notifySettings: (s: Partial<NotifySettings>) => post<NotifySettings>('/notify/settings', s),
   notifyTest: () => post<{ ok: true }>('/notify/test'),
