@@ -42,9 +42,9 @@ export function cpuSeconds(s: string): number {
 
 interface TaskRow { type: string; start: number; status: string; message: string }
 
-/** Pairs "Started N.scope" with the following "Deactivated", and names what ended each run from the task log. */
+/** Expects `lines` newest-first (journalctl -r). Pairs "Started N.scope" with the following "Deactivated", and names what ended each run from the task log. */
 export function buildSessions(lines: { ts: string; message: string }[], tasks: TaskRow[], vmid: number): Session[] {
-  const asc = [...lines].sort((a, b) => a.ts.localeCompare(b.ts));
+  const asc = [...lines].reverse(); // input is newest-first; same-millisecond lines (Deactivated/Consumed) must keep their order
   const out: Session[] = [];
   let cur: Session | null = null;
   const stop = new Set(['qmshutdown', 'qmstop', 'qmreboot', 'qmreset', 'qmsuspend']);
@@ -144,7 +144,7 @@ export function analyse(p: { vmid: number; since: string; lines: LogLine[]; task
     f.push({ id: 'qemu-crash', severity: 'critical', count: crashes.length, title: `${crashes.length} abnormal process exit${crashes.length > 1 ? 's' : ''}`, detail: crashes[0].message.slice(0, 160), advice: 'QEMU itself crashed or was killed. Compare the time against the session list to see which run it belongs to.' });
   }
 
-  const failedStarts = tasks.filter((t) => t.type === 'qmstart' && t.status === 'error');
+  const failedStarts = tasks.filter((t) => t.type === 'qmstart' && t.status === 'error' && !/already running/i.test(t.message));
   if (failedStarts.length) {
     f.push({ id: 'start-failed', severity: 'critical', count: failedStarts.length, title: `${failedStarts.length} failed start${failedStarts.length > 1 ? 's' : ''}`, detail: failedStarts[0].message.slice(0, 160), advice: 'Open the task log for the exact QEMU error (often a busy PCI device, missing disk, or a conflicting VM that holds the GPU).' });
   }
@@ -231,6 +231,9 @@ async function agentProbe(vmid: number, status: string) {
   const base = `${node()}/qemu/${vmid}/agent`;
   const os = await pve<any>('GET', `${base}/get-osinfo`).then((r) => r?.result ?? r).catch((e: Error) => e);
   if (os instanceof Error) {
+    if (/Permission check failed/i.test(os.message)) {
+      return { state: 'no-permission' as const, error: 'The dashboard API token lacks VM.GuestAgent.Audit on this VM.', os: null, hostname: null, timezone: null, timeSkewSec: null, disks: [], nics: [], users: [] };
+    }
     return { state: 'unreachable' as const, error: os.message.replace(/^Proxmox \d+: /, '').slice(0, 200), os: null, hostname: null, timezone: null, timeSkewSec: null, disks: [], nics: [], users: [] };
   }
   const get = <T,>(p: string) => pve<any>('GET', `${base}/${p}`).then((r) => (r?.result ?? r) as T).catch(() => null);
@@ -269,32 +272,39 @@ export async function windowsReport(vmid: number, since: string) {
     pve<any>('GET', `${node()}/qemu/${vmid}/status/current`),
     listTasks({ vmid, limit: 500 }).catch(() => []),
     // Same scope as the per-guest log tab, plus the scope start/stop/CPU-time lines that give run history.
-    journal(['--since', since, '-g', `\\b(VM|CT|vm|ct) ${vmid}\\b|\\b${vmid}\\.scope|qemu-server@${vmid}\\b|:(qmstart|qmstop|qmshutdown|qmreboot|qmreset|qmsuspend|qmresume):${vmid}:|\\bvmid[= ]${vmid}\\b|vfio-pci`, '-n', '4000', '-r']).catch(() => []),
+    journal(['--since', since, '-g', `\\b(VM|CT|vm|ct) ${vmid}\\b|\\b${vmid}\\.scope|qemu-server@${vmid}\\b|:(qmstart|qmstop|qmshutdown|qmreboot|qmreset|qmsuspend|qmresume):${vmid}:|\\bvmid[= ]${vmid}\\b`, '-n', '4000', '-r']).catch(() => []),
     pve<any[]>('GET', `${node()}/qemu/${vmid}/rrddata?timeframe=${timeframeFor(since)}&cf=AVERAGE`).catch(() => []),
   ]);
   const agent = await agentProbe(vmid, g.status);
 
-  // vfio-pci lines are host-wide; keep only the functions assigned to this VM.
+  // vfio-pci lines are host-wide and very chatty, so they get their own query scoped to this VM's PCI functions.
   const assigned = Object.entries(config).filter(([k]) => /^hostpci\d+$/.test(k))
-    .flatMap(([, v]) => str(v).split(',')[0].replace(/^host=/, '').split(';')).map((a) => (/^[0-9a-f]{2}:/i.test(a) ? `0000:${a}` : a).toLowerCase());
-  const mine = raw.filter((l) => !l.message.includes('vfio-pci ') || assigned.some((a) => l.message.toLowerCase().includes(a)));
+    .flatMap(([, v]) => str(v).split(',')[0].replace(/^host=/, '').split(';')).map((a) => (/^[0-9a-f]{2}:/i.test(a) ? `0000:${a}` : a).toLowerCase())
+    .filter((a) => /^[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}(\.[0-7])?$/.test(a));
+  const vfio = assigned.length
+    ? await journal(['-k', '--since', since, '-g', `vfio-pci (${assigned.map((a) => a.replace(/\./g, '\\.')).join('|')})`, '-n', '8000', '-r']).catch(() => [])
+    : [];
+  const mine = raw;
   const lines = mine.map(classify);
+  // Resets are counted for the findings but kept out of the displayed log (hundreds of identical rows).
+  const vfioLines = vfio.map(classify);
+  const display = [...lines, ...vfioLines.filter((l) => !VFIO_RESET.test(l.message) && !/reset done/.test(l.message))].sort((a, b) => b.ts.localeCompare(a.ts));
   const since7 = since;
   const sessions = buildSessions(mine, tasks, vmid);
-  const findings = analyse({ vmid, since: since7, lines, tasks, sessions, status: g.status });
-  const health = configChecks(config, { machine: cur['running-machine'] ? str(cur['running-machine']) : null, status: g.status, agentUp: agent.state === 'ok' ? true : agent.state === 'unreachable' ? false : null });
+  const findings = analyse({ vmid, since: since7, lines: [...lines, ...vfioLines], tasks, sessions, status: g.status });
+  const health = configChecks(config, { machine: cur['running-machine'] ? str(cur['running-machine']) : null, status: g.status, agentUp: agent.state === 'ok' ? true : agent.state === 'unreachable' ? false : null /* vm-stopped / no-permission: unknown */ });
 
   const rows = rrd.map((r) => ({ time: Number(r.time), cpu: r.cpu == null ? null : Number(r.cpu), mem: r.mem == null ? null : Number(r.mem), netin: r.netin == null ? null : Number(r.netin), netout: r.netout == null ? null : Number(r.netout), diskread: r.diskread == null ? null : Number(r.diskread), diskwrite: r.diskwrite == null ? null : Number(r.diskwrite) }));
-  const noisy = lines.filter((l) => l.level !== 'info');
+  const noisy = display.filter((l) => l.level !== 'info');
   const verdict: Severity = findings.some((f) => f.severity === 'critical') ? 'critical' : findings.some((f) => f.severity === 'warn') ? 'warn' : 'ok';
   return {
     vmid, name: g.name, since, ostype: str(config.ostype), status: g.status, verdict,
     uptime: g.uptime, agent, findings, health, sessions: sessions.slice(0, 30),
     taskHistory: tasks.filter((t) => /^(qm(start|stop|shutdown|reboot|reset|suspend|resume)|vncproxy)$/.test(t.type)).slice(0, 60),
     metrics: summarise(rows), metricsTimeframe: timeframeFor(since),
-    counts: { lines: lines.length, problems: noisy.length },
+    counts: { lines: display.length, problems: noisy.length },
     recurring: recurring(noisy).slice(0, 15),
-    lines: lines.slice(0, 600),
+    lines: display.slice(0, 600),
   };
 }
 
