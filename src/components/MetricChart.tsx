@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
+import { fmtBytes } from '../format';
 import { useQuery } from '../hooks';
 import { Async } from './ui';
 
-type Pt = [number, number];
-interface Series { name: string; points: Pt[] }
+export type Pt = [number, number];
+export interface Series { name: string; points: Pt[] }
 
-function LineChart({ series, unit, height = 220 }: { series: Series[]; unit: string; height?: number }) {
+export function LineChart({ series, unit, height = 220, max }: { series: Series[]; unit: string; height?: number; max?: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(600);
   const [hover, setHover] = useState<number | null>(null);
@@ -24,11 +25,13 @@ function LineChart({ series, unit, height = 220 }: { series: Series[]; unit: str
   const rawMax = Math.max(...all.map((p) => p[1]), 1e-9);
   const niceMax = useMemo(() => {
     const p = Math.pow(10, Math.floor(Math.log10(rawMax)));
-    return Math.ceil((rawMax * 1.1) / p) * p;
-  }, [rawMax]);
+    return max ?? Math.ceil((rawMax * 1.1) / p) * p;
+  }, [rawMax, max]);
   const X = (t: number) => m.l + ((t - x0) / Math.max(1, x1 - x0)) * (w - m.l - m.r);
   const Y = (v: number) => m.t + (1 - v / niceMax) * (height - m.t - m.b);
-  const fmt = (v: number) => (unit === '%' ? `${v.toFixed(v < 10 ? 1 : 0)}%` : v >= 1e9 ? `${(v / 1e9).toFixed(1)}G` : v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(1)}k` : v.toFixed(1));
+  const long = x1 - x0 > 36 * 3600;
+  const fmtT = (t: number) => new Date(t * 1000).toLocaleString([], long ? { day: 'numeric', month: 'short' } : { hour: '2-digit', minute: '2-digit' });
+  const fmt = (v: number) => (unit === 'B' || unit === 'B/s' ? fmtBytes(v) : unit === '%' ? `${v.toFixed(v < 10 ? 1 : 0)}%` : v >= 1e9 ? `${(v / 1e9).toFixed(1)}G` : v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(1)}k` : v.toFixed(1));
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * niceMax);
   const xt = [0, 0.25, 0.5, 0.75, 1].map((f) => x0 + f * (x1 - x0));
   const colors = ['var(--blue)', 'var(--green)', 'var(--peri)', 'var(--red)'];
@@ -57,7 +60,7 @@ function LineChart({ series, unit, height = 220 }: { series: Series[]; unit: str
         ))}
         {xt.map((t, i) => (
           <text key={i} x={X(t)} y={height - 6} textAnchor={i === 0 ? 'start' : i === 4 ? 'end' : 'middle'} className="axis">
-            {new Date(t * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {fmtT(t)}
           </text>
         ))}
         {series.map((s, i) => {
@@ -73,15 +76,15 @@ function LineChart({ series, unit, height = 220 }: { series: Series[]; unit: str
         {idx != null && (
           <g>
             <line x1={X(base[idx][0])} x2={X(base[idx][0])} y1={m.t} y2={height - m.b} className="cross" />
-            {series.map((s, i) => <circle key={i} cx={X(s.points[idx][0])} cy={Y(s.points[idx][1])} r="4" fill="var(--surface)" stroke={colors[i % 4]} strokeWidth="2" />)}
+            {series.filter((s) => s.points[idx]).map((s, i) => <circle key={i} cx={X(s.points[idx][0])} cy={Y(s.points[idx][1])} r="4" fill="var(--surface)" stroke={colors[i % 4]} strokeWidth="2" />)}
           </g>
         )}
       </svg>
       {idx != null && (
         <div className="tip" style={{ left: Math.min(w - 150, Math.max(0, X(base[idx][0]) + 12)) }}>
-          <b>{new Date(base[idx][0] * 1000).toLocaleTimeString()}</b>
+          <b>{new Date(base[idx][0] * 1000).toLocaleString([], long ? { dateStyle: 'medium', timeStyle: 'short' } : { timeStyle: 'medium' })}</b>
           {series.map((s, i) => (
-            <span key={s.name}><i style={{ background: colors[i % 4] }} />{s.name}: {fmt(s.points[idx][1])}{unit === '%' ? '' : ` ${unit}`}</span>
+            <span key={s.name}><i style={{ background: colors[i % 4] }} />{s.name}: {fmt(s.points[idx]?.[1] ?? 0)}{unit === '%' || unit === 'B' ? '' : unit === 'B/s' ? '/s' : ` ${unit}`}</span>
           ))}
         </div>
       )}

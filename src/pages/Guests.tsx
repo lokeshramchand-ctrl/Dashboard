@@ -7,8 +7,8 @@ import { useGuestEvents, useQuery, useSearch, useToast } from '../hooks';
 import type { Guest, GuestAction } from '../types';
 
 const GAMING_VMID = 100;
-const VERB: Record<GuestAction, string> = { start: 'Start', shutdown: 'Shutdown', stop: 'Force stop', reboot: 'Reboot' };
-const WANT: Record<GuestAction, Guest['status'] | null> = { start: 'running', shutdown: 'stopped', stop: 'stopped', reboot: null };
+const VERB: Record<GuestAction, string> = { start: 'Start', shutdown: 'Shutdown', stop: 'Force stop', reboot: 'Reboot', reset: 'Reset', suspend: 'Pause', resume: 'Resume' };
+const WANT: Record<GuestAction, Guest['status'] | null> = { start: 'running', shutdown: 'stopped', stop: 'stopped', reboot: null, reset: null, suspend: 'paused', resume: 'running' };
 
 type Filter = 'all' | 'running' | 'stopped' | 'lxc' | 'qemu';
 
@@ -61,7 +61,7 @@ export default function Guests() {
 
   return (
     <>
-      <PageHeader title="Guests" sub="Containers and virtual machines on your Proxmox node." />
+      <PageHeader eyebrow="Datacenter" title="Guests" sub="Containers and virtual machines on your Proxmox node. Select a guest for its summary, hardware, snapshots and task history." />
       <Async q={q} rows={6} h={60} isEmpty={(d) => d.length === 0} empty={{ title: 'No guests found', hint: 'Proxmox returned no containers or VMs.' }}>
         {(list) => {
           const gaming = list.find((g) => g.vmid === GAMING_VMID);
@@ -101,7 +101,7 @@ export default function Guests() {
                         <Switch on={on} busy={!!p} disabled={g.protected} label={`${running ? 'Shut down' : 'Start'} ${g.name}`} onClick={() => toggle(g, list)} />
                       </span>
                       <span className="c-name">
-                        <b>{g.name}</b>
+                        <a className="row-link" href={`#/guests/${g.vmid}`}><b>{g.name}</b></a>
                         <small className="muted">#{g.vmid}{g.tags.slice(0, 3).map((t) => <em key={t} className="tag">{t}</em>)}</small>
                       </span>
                       <span className="c-type"><Badge tone={g.type === 'qemu' ? 'blue' : 'gray'}>{g.type === 'qemu' ? 'VM' : 'LXC'}</Badge></span>
@@ -169,7 +169,7 @@ function GamingCard({ g, pending, onToggle, conflicts }: { g: Guest; list: Guest
         <div className="gaming-ic"><Icon name="gamepad" size={26} /></div>
         <div>
           <p className="eyebrow">Gaming VM · #{g.vmid} · Windows · QEMU</p>
-          <h2>{g.name}</h2>
+          <h2><a href={`#/guests/${g.vmid}`}>{g.name}</a></h2>
           <div className="gaming-meta">
             {busy ? <Badge tone="amber"><Spinner size={11} />{pending === 'start' ? 'Starting' : 'Shutting down'}</Badge> : <Badge tone={running ? 'green' : 'gray'} dot>{g.status}</Badge>}
             <span><Icon name="clock" size={14} />{running ? `Up ${fmtUptime(g.uptime)}` : 'Powered off'}</span>
