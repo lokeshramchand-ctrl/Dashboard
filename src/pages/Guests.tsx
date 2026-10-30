@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { api } from '../api';
 import { BrandSwirl } from '../components/Brand';
-import { Async, Badge, Chips, HoldButton, Icon, Menu, Meter, Modal, PageHeader, SearchBox, Spinner } from '../components/ui';
+import { Async, Badge, Chips, HoldButton, Icon, Menu, Meter, Modal, PageHeader, Spinner } from '../components/ui';
 import { fmtBytes, fmtPct, fmtUptime, sleep } from '../format';
 import { useGuestEvents, useQuery, useSearch, useToast } from '../hooks';
 import type { Guest, GuestAction } from '../types';

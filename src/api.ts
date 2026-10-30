@@ -1,7 +1,7 @@
 import type {
   AppConfig, Guest, GuestAction, GrafanaDashboard, GrafanaPanel, KumaIncident, KumaMonitor,
   JournalLine, LogSummary, NginxSite, Overview, PromResult, SsoConfig, SystemEvent, Task,
-  AiInfo, ConfigRow, Diagnostics, Disk, GpuInfo, GuestLogs, WindowsReport, LogLine, Sensor, NotifyInfo, NotifySettings, GuestStatusDetail, NetIface, NodeInfo, PveTask, RrdPoint, Service, Snapshot, Storage, Timeframe,
+  LokiStatus, LokiLine, LokiHistogram, AiInfo, ConfigRow, Diagnostics, Disk, GpuInfo, GuestLogs, WindowsReport, LogLine, Sensor, NotifyInfo, NotifySettings, GuestStatusDetail, NetIface, NodeInfo, PveTask, RrdPoint, Service, Snapshot, Storage, Timeframe, QemuDevices, BackupList,
 } from './types';
 
 export class ApiError extends Error {
@@ -48,6 +48,7 @@ const qs = (p: Record<string, string | undefined>) => {
 };
 const get = <T,>(p: string) => req<T>('GET', p);
 const post = <T,>(p: string, b?: unknown) => req<T>('POST', p, b ?? {});
+const del = <T,>(p: string) => req<T>('DELETE', p);
 
 export const api = {
   login: (username: string, password: string) => post<unknown>('/auth/login', { username, password }),
@@ -64,6 +65,13 @@ export const api = {
   guestConfig: (vmid: number) => get<ConfigRow[]>(`/guests/${vmid}/config`),
   guestRrd: (vmid: number, tf: Timeframe) => get<RrdPoint[]>(`/guests/${vmid}/rrd?timeframe=${tf}`),
   snapshots: (vmid: number) => get<Snapshot[]>(`/guests/${vmid}/snapshots`),
+  snapshotCreate: (vmid: number, b: { name: string; description?: string; vmstate?: boolean }) => post<{ taskId: string }>(`/guests/${vmid}/snapshots`, b),
+  snapshotRollback: (vmid: number, name: string) => post<{ taskId: string }>(`/guests/${vmid}/snapshots/${encodeURIComponent(name)}/rollback`, { confirm: name }),
+  snapshotDelete: (vmid: number, name: string) => del<{ taskId: string }>(`/guests/${vmid}/snapshots/${encodeURIComponent(name)}`),
+  qemuDevices: (vmid: number) => get<QemuDevices>(`/guests/${vmid}/qemu/devices`),
+  qemuSendKey: (vmid: number, key: string) => post<{ taskId: null }>(`/guests/${vmid}/qemu/sendkey`, { key }),
+  backups: (vmid: number) => get<BackupList>(`/guests/${vmid}/backups`),
+  backupNow: (vmid: number, storage: string, mode = 'snapshot') => post<{ taskId: string }>(`/guests/${vmid}/backup`, { storage, mode }),
   node: () => get<NodeInfo>('/node'),
   nodeRrd: (tf: Timeframe) => get<RrdPoint[]>(`/node/rrd?timeframe=${tf}`),
   network: () => get<NetIface[]>('/node/network'),
@@ -95,6 +103,10 @@ export const api = {
   events: (p: { level?: string; source?: string; q?: string }) => get<SystemEvent[]>('/logs/events' + qs({ ...p, limit: '300' })),
   journal: (p: { priority?: string; unit?: string; since?: string; boot?: string; q?: string; kernel?: string }) =>
     get<JournalLine[]>('/logs/journal' + qs({ ...p, limit: '300' })),
+  lokiStatus: () => get<LokiStatus>('/loki/status'),
+  lokiLabelValues: (name: string) => get<string[]>(`/loki/labels/${encodeURIComponent(name)}/values`),
+  lokiQuery: (query: string, since: string) => get<LokiLine[]>('/loki/query' + qs({ query, since, limit: '500' })),
+  lokiHistogram: (query: string, since: string) => get<LokiHistogram>('/loki/histogram' + qs({ query, since })),
 };
 
 /** Optional runtime config shipped next to index.html (see API_NOTES.md). */

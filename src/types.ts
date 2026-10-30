@@ -165,3 +165,18 @@ export interface WindowsReport {
   metrics: { samples: number; cpu: Stat | null; mem: Stat | null; netIn: Stat | null; netOut: Stat | null; diskRead: Stat | null; diskWrite: Stat | null; cpuSaturatedPct: number; idleSamples: number };
   metricsTimeframe: Timeframe; counts: { lines: number; problems: number }; recurring: Recurring[]; lines: LogLine[];
 }
+
+export interface LokiStatus { configured: boolean; ready: boolean; publicUrl: string; error: string | null; labels: string[] }
+export interface LokiLine { ts: string; ns: string; line: string; labels: Record<string, string> }
+export interface LokiHistogram { stepSeconds: number; points: { t: string; n: number }[] }
+
+export interface QemuDisk { key: string; bus: string; storage: string; volume: string; size: string | null; cdrom: boolean; cache: string | null; iothread: boolean; discard: boolean; ssd: boolean; backup: boolean }
+export interface QemuNic { key: string; model: string; mac: string | null; bridge: string | null; vlan: string | null; firewall: boolean; rate: string | null; queues: string | null; linkDown: boolean }
+export interface QemuPci { key: string; device: string; pcie: boolean; xvga: boolean; romBar: boolean; mapping: boolean }
+export interface QemuDevices {
+  machine: string | null; bios: string; cpu: string; sockets: number; cores: number; memoryMb: number; balloonMb: number | null; ostype: string | null; scsihw: string | null;
+  efi: boolean; tpm: boolean; agent: boolean; disks: QemuDisk[]; nics: QemuNic[]; pci: QemuPci[]; usb: { key: string; value: string }[]; other: { key: string; value: string }[];
+  warnings: { severity: 'warn' | 'info'; title: string; advice: string }[];
+}
+export interface Backup { volid: string; storage: string; size: number; time: number; format: string; notes: string; protected: boolean }
+export interface BackupList { storages: string[]; backups: Backup[] }

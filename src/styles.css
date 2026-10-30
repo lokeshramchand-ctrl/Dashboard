@@ -545,6 +545,11 @@ body { font-size: 14px; }
 .dt-cfg.pending { background: var(--peri-soft); box-shadow: inset 3px 0 0 var(--peri); }
 .dt-cfg .old { text-decoration: line-through; opacity: .6; } .dt-cfg .new { color: var(--peri-t); font-weight: 600; }
 .dt-snap { grid-template-columns: 1.2fr 80px 200px 2fr; }
+.dt-snap.act { grid-template-columns: 1.2fr 80px 200px 2fr 170px; }
+.dt-hw { grid-template-columns: 70px 1.6fr 1fr 1.4fr; }
+.dt-bk { grid-template-columns: 2.4fr 110px 90px 190px; }
+.row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.qemu-warn { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; } .qemu-warn:last-child { border-bottom: 0; }
 .t-row { grid-template-columns: 2fr 120px 140px 120px 90px; width: 100%; background: none; border-left: 0; border-right: 0; border-top: 0; text-align: left; color: inherit; font: inherit; cursor: pointer; }
 .t-row.g-head { cursor: default; }
 .t-row.compact { grid-template-columns: 2fr 120px 120px 90px; }
@@ -722,3 +727,5 @@ body { font-size: 14px; }
 .host-power h3 { margin: 2px 0 4px; }
 .host-power .muted { margin: 0; max-width: 56ch; }
 .modal .input { margin-top: 8px; }
+.loki-bars { display: flex; align-items: flex-end; gap: 2px; height: 64px; }
+.loki-bars span { flex: 1; background: var(--blue); border-radius: 2px 2px 0 0; min-width: 2px; }

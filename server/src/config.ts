@@ -54,6 +54,9 @@ export const cfg = {
   kumaApiKey: env('KUMA_API_KEY'),
   kumaPollMs: Number(env('KUMA_POLL_MS', '60000')),
 
+  lokiUrl: trim(env('LOKI_URL')), // how the backend reaches Loki, e.g. http://10.10.10.121:3100 (read-only; nothing is stored here)
+  lokiPublicUrl: trim(env('LOKI_PUBLIC_URL') || env('LOKI_URL')),
+
   journalEnabled: bool('JOURNAL_ENABLED', true), // /api/logs/journal reads the host journal (dashboard user needs the systemd-journal group)
   eventRetentionDays: Number(env('EVENT_RETENTION_DAYS', '90')),
 
@@ -92,3 +95,4 @@ export const keycloakConfigured = () => !!(cfg.keycloak.issuer && cfg.keycloak.c
 export const kumaConfigured = () => !!(cfg.kumaUrl && cfg.kumaApiKey);
 export const ntfyConfigured = () => !!(cfg.ntfy.url && cfg.ntfy.topic);
 export const aiConfigured = () => !!(cfg.ai.baseUrl && cfg.ai.model);
+export const lokiConfigured = () => !!cfg.lokiUrl;

@@ -14,6 +14,7 @@ server/            Fastify backend (TypeScript, compiled on the dev PC)
   src/db.ts        Mongo connection, indexes, typed collections
   src/guests.ts    guest list/actions, task status, SSE /api/events
   src/{nginx,grafana,kuma,overview}.ts
+  src/qemu.ts      QEMU: parsed hardware + checks, snapshot create/rollback/delete, backups, send-key
   src/create-user.ts   CLI to create a user or reset a password
 API_NOTES.md       units/format contract between UI and backend
 mobile/            Expo / React Native app (same /api contract; cookie session)

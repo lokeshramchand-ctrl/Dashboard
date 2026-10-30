@@ -4,7 +4,7 @@ import { HttpError, notConfigured } from './errors.js';
 
 const dispatcher = cfg.pveInsecureTls ? new Agent({ connect: { rejectUnauthorized: false } }) : undefined;
 
-export async function pve<T>(method: 'GET' | 'POST', path: string, form?: Record<string, string>): Promise<T> {
+export async function pve<T>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, form?: Record<string, string>): Promise<T> {
   if (!pveConfigured()) throw notConfigured('Proxmox');
   let res: Response;
   try {

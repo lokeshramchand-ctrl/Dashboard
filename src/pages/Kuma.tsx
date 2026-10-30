@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api';
-import { Async, Badge, Card, Chips, HeartbeatBar, Icon, PageHeader, SearchBox } from '../components/ui';
+import { Async, Badge, Card, Chips, HeartbeatBar, Icon, PageHeader } from '../components/ui';
 import type { Tone } from '../components/ui';
 import { timeAgo } from '../format';
 import { useQuery, useSearch } from '../hooks';
