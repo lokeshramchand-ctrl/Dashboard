@@ -50,13 +50,13 @@ const parseVmid = (v: string) => {
   return n;
 };
 
-async function findGuest(v: string): Promise<Guest> {
+export async function findGuest(v: string): Promise<Guest> {
   const vmid = parseVmid(v);
   const g = (await listGuests()).find((x) => x.vmid === vmid);
   if (!g) throw new HttpError(404, 'NOT_FOUND', `Guest ${vmid} does not exist or is not allowed`);
   return g;
 }
-const guestPath = (g: Guest) => `/nodes/${encodeURIComponent(cfg.pveNode)}/${g.type}/${g.vmid}`;
+export const guestPath = (g: Guest) => `/nodes/${encodeURIComponent(cfg.pveNode)}/${g.type}/${g.vmid}`;
 const num = (v: unknown) => (v == null || v === '' ? 0 : Number(v));
 
 export function registerGuests(app: FastifyInstance) {

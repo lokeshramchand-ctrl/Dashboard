@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api';
 import { MetricChart } from '../components/MetricChart';
-import { Async, Badge, Card, CardHead, Chips, EmptyState, Icon, PageHeader, SearchBox } from '../components/ui';
+import { Async, Badge, Card, CardHead, Chips, EmptyState, Icon, PageHeader } from '../components/ui';
 import { useQuery, useSearch } from '../hooks';
 import type { GrafanaDashboard } from '../types';
 

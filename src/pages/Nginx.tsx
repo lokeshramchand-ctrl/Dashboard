@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api';
-import { Async, Badge, Chips, Icon, PageHeader, SearchBox } from '../components/ui';
+import { Async, Badge, Chips, Icon, PageHeader } from '../components/ui';
 import type { Tone } from '../components/ui';
 import { hostOf } from '../format';
 import { useQuery, useSearch } from '../hooks';

@@ -3,9 +3,9 @@ import { api } from '../api';
 import { Async, Badge, Card, CardHead, Chips, PageHeader } from '../components/ui';
 import type { Tone } from '../components/ui';
 import { useQuery, useSearch } from '../hooks';
-import type { BootInfo, EventLevel } from '../types';
+import type { BootInfo, EventLevel, LokiLine } from '../types';
 
-type Tab = 'events' | 'journal' | 'boots';
+type Tab = 'events' | 'journal' | 'loki' | 'boots';
 const LEVEL: Record<EventLevel, Tone> = { info: 'blue', warn: 'amber', error: 'red' };
 const PRIO = ['emerg', 'alert', 'crit', 'err', 'warning', 'notice', 'info', 'debug'];
 const PRIO_TONE: Tone[] = ['red', 'red', 'red', 'red', 'amber', 'blue', 'gray', 'gray'];
@@ -25,12 +25,14 @@ export default function Logs() {
         <Chips value={tab} onChange={setTab} options={[
           { id: 'events', label: 'Events', count: summary.data?.errors24h },
           { id: 'journal', label: 'Host journal' },
+          { id: 'loki', label: 'Loki' },
           { id: 'boots', label: 'Boot history' },
         ]} />
         {summary.data && summary.data.errors24h > 0 && <Badge tone="red" dot>{summary.data.errors24h} errors in 24 h</Badge>}
       </div>
       {tab === 'events' && <Events />}
       {tab === 'journal' && <Journal />}
+      {tab === 'loki' && <Loki />}
       {tab === 'boots' && <Boots />}
     </>
   );
@@ -129,5 +131,78 @@ function Boots() {
         )}
       </Async>
     </Card>
+  );
+}
+
+const RANGES = ['15m', '1h', '6h', '24h', '7d'];
+const LVL = /\b(crit|fatal|panic|error|err|warn(?:ing)?)\b/i;
+const esc = (v: string) => v.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
+// Queries Loki live through the backend; nothing is copied or stored by the dashboard.
+function Loki() {
+  const { q: search } = useSearch();
+  const status = useQuery(api.lokiStatus, [], 0);
+  const [label, setLabel] = useState('');
+  const [value, setValue] = useState('');
+  const [raw, setRaw] = useState('');
+  const [since, setSince] = useState('1h');
+  const [live, setLive] = useState(false);
+  const labels = status.data?.labels ?? [];
+  const values = useQuery(() => (label ? api.lokiLabelValues(label) : Promise.resolve([] as string[])), [label], 0);
+
+  const base = raw.trim() || (label && value ? `{${label}="${esc(value)}"}` : label ? `{${label}=~".+"}` : '');
+  const text = search.trim();
+  const query = base && !raw.trim() && text ? `${base} |~ "(?i)${esc(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))}"` : base;
+  const lines = useQuery(() => (query ? api.lokiQuery(query, since) : Promise.resolve([] as LokiLine[])), [query, since], live ? 5000 : 0);
+  const hist = useQuery(() => (query ? api.lokiHistogram(query, since) : Promise.resolve(null)), [query, since], live ? 15000 : 0);
+
+  if (status.data && !status.data.configured) return <Card><CardHead title="Loki is not configured" sub="Set LOKI_URL in server/.env (for example http://10.10.10.121:3100) and restart the dashboard." /></Card>;
+  const max = Math.max(1, ...(hist.data?.points.map((p) => p.n) ?? [1]));
+  return (
+    <>
+      <div className="toolbar">
+        {status.data && (status.data.ready ? <Badge tone="green" dot>Loki connected</Badge> : <Badge tone="red" dot>{status.data.error ?? 'Loki unreachable'}</Badge>)}
+        <select className="input" style={{ maxWidth: 180 }} aria-label="Label" value={label} onChange={(e) => { setLabel(e.target.value); setValue(''); }}>
+          <option value="">Pick a label…</option>
+          {labels.map((l) => <option key={l} value={l}>{l}</option>)}
+        </select>
+        <select className="input" style={{ maxWidth: 220 }} aria-label="Value" value={value} disabled={!label} onChange={(e) => setValue(e.target.value)}>
+          <option value="">Any value</option>
+          {(values.data ?? []).map((v) => <option key={v} value={v}>{v}</option>)}
+        </select>
+        <Chips value={since} onChange={setSince} options={RANGES.map((r) => ({ id: r, label: r }))} />
+        <Chips value={live ? 'live' : 'off'} onChange={(v) => setLive(v === 'live')} options={[{ id: 'off', label: 'Paused' }, { id: 'live', label: 'Live 5 s' }]} />
+      </div>
+      <div className="toolbar">
+        <input className="input mono" style={{ flex: 1 }} placeholder='Or write LogQL, e.g. {job="varlogs"} |= "error"' aria-label="LogQL query" value={raw} onChange={(e) => setRaw(e.target.value)} />
+      </div>
+      {query && hist.data && hist.data.points.length > 0 && (
+        <Card>
+          <div className="loki-bars" role="img" aria-label={`Matching lines over the last ${since}`}>
+            {hist.data.points.map((p) => <span key={p.t} title={`${when(p.t)}: ${p.n}`} style={{ height: `${Math.max(2, (p.n / max) * 100)}%` }} />)}
+          </div>
+        </Card>
+      )}
+      <Card pad={false}>
+        {!query
+          ? <CardHead title="Choose a label or write a query" sub={`${labels.length} labels available. Results come straight from Loki; the dashboard stores nothing.`} />
+          : (
+            <Async q={lines} rows={8} h={36} isEmpty={(d) => d.length === 0} empty={{ title: 'No log lines', hint: `Nothing matched ${query} in the last ${since}.` }}>
+              {(rows) => (
+                <div className="log-list">
+                  {rows.map((l) => (
+                    <div key={l.ns} className={`log-row ${/\b(crit|fatal|panic|error|err)\b/i.test(l.line) ? 'err' : LVL.test(l.line) ? 'warn' : ''}`}>
+                      <span className="muted">{when(l.ts)}</span>
+                      <span className="muted" title={JSON.stringify(l.labels)}>{l.labels.job ?? l.labels.service_name ?? l.labels.app ?? Object.values(l.labels)[0] ?? ''}</span>
+                      <span className="muted">{l.labels.host ?? l.labels.hostname ?? l.labels.filename?.split('/').pop() ?? ''}</span>
+                      <span className="msg">{l.line}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Async>
+          )}
+      </Card>
+    </>
   );
 }

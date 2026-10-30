@@ -102,16 +102,6 @@ export function PageHeader({ title, sub, actions, eyebrow }: { title: string; su
   );
 }
 
-export function SearchBox({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
-  return (
-    <label className="search">
-      <Icon name="search" size={16} />
-      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={placeholder} />
-      {value && <button onClick={() => onChange('')} aria-label="Clear search"><Icon name="x" size={14} /></button>}
-    </label>
-  );
-}
-
 export function Chips<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: { id: T; label: string; count?: number }[] }) {
   return (
     <div className="chips" role="tablist">

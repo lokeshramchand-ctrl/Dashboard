@@ -16,8 +16,10 @@ import { registerAi } from './ai.js';
 import { registerDiagnostics } from './diagnostics.js';
 import { registerNode } from './node.js';
 import { registerWindows } from './windows.js';
+import { registerQemu } from './qemu.js';
 import { registerNotify, startNotify } from './notify.js';
 import { registerOidc } from './oidc.js';
+import { registerLoki } from './loki.js';
 import { registerOverview } from './overview.js';
 
 const app = Fastify({
@@ -70,11 +72,13 @@ await app.register(cookie);
 registerAuth(app);
 registerOidc(app);
 registerLogs(app);
+registerLoki(app);
 registerOverview(app);
 registerGuests(app);
 registerNode(app);
 registerDiagnostics(app);
 registerWindows(app);
+registerQemu(app);
 registerAi(app);
 registerNotify(app);
 registerHost(app);

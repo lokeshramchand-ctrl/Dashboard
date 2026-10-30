@@ -75,3 +75,23 @@ Backend deviations from the contract: Kuma `incidents[].message` is generic (`Mo
 
 - `GET /host/power` -> `{enabled, node}`. `enabled` mirrors `HOST_POWER_ENABLED`; the UI hides the kill switch card when false.
 - `POST /host/shutdown` body `{confirm: "<node name>"}` -> `{ok:true}`. Calls Proxmox `POST /nodes/<node>/status command=shutdown` (token needs `Sys.PowerMgmt`). `503 NOT_CONFIGURED` when disabled, `400 BAD_CONFIRM` when the name does not match. Audited as `action: host-shutdown`, `vmid: 0`. There is no power-on endpoint: the dashboard runs on the host.
+
+## Loki (read-only, live; nothing stored by the dashboard)
+
+Needs `LOKI_URL` (and optionally `LOKI_PUBLIC_URL`); otherwise 503 `NOT_CONFIGURED` (`/loki/status` returns `configured:false`).
+- `GET /loki/status` → `{configured, ready, publicUrl, error, labels[]}`
+- `GET /loki/labels?since=24h`, `GET /loki/labels/:name/values?since=24h` → `string[]`
+- `GET /loki/query?query=<LogQL>&since=15m|6h|7d (max 31d)&limit=&direction=backward|forward` → `[{ts, ns, line, labels}]`
+- `GET /loki/histogram?query=&since=` → `{stepSeconds, points[{t, n}]}` (~60 buckets)
+- Bad LogQL → 400 `BAD_QUERY`; Loki down → 502 `LOKI_UNREACHABLE`.
+
+## QEMU management (VMs; snapshots and backups also work for containers)
+
+All writes refuse protected guests (403 `PROTECTED`) and are audited (`action: snapshot-create | snapshot-rollback | snapshot-delete | backup | sendkey-<key>`).
+- `GET /guests/:vmid/qemu/devices` -> parsed hardware `{machine, bios, cpu, sockets, cores, memoryMb, balloonMb, ostype, efi, tpm, agent, disks[], nics[], pci[], usb[], other[], warnings[{severity, title, advice}]}`. LXC returns 400 `UNSUPPORTED`.
+- `POST /guests/:vmid/snapshots` `{name, description?, vmstate?}` -> `{taskId}`. Name `^[A-Za-z][A-Za-z0-9_-]{0,39}$`; `vmstate` only applies to a running VM.
+- `POST /guests/:vmid/snapshots/:name/rollback` `{confirm: "<name>"}` -> `{taskId}` (400 `CONFIRM_REQUIRED` if the name does not match).
+- `DELETE /guests/:vmid/snapshots/:name` -> `{taskId}`.
+- `GET /guests/:vmid/backups` -> `{storages[], backups[{volid, storage, size, time, format, notes, protected}]}` (newest first; empty when the token cannot see a backup storage).
+- `POST /guests/:vmid/backup` `{storage, mode?: snapshot|suspend|stop}` -> `{taskId}` (vzdump, zstd; token needs `VM.Backup` and `Datastore.AllocateSpace`).
+- `POST /guests/:vmid/qemu/sendkey` `{key: ctrl-alt-delete|ctrl-alt-f1|ctrl-alt-f2|esc|win|alt-f4}` -> `{taskId: null}` (running VMs only; token needs `VM.Console`).

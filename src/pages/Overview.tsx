@@ -2,7 +2,7 @@ import { api } from '../api';
 import { BrandSwirl } from '../components/Brand';
 import { InView, Reveal, RevealWords } from '../components/Reveal';
 import { AreaCard } from '../components/AreaCard';
-import { Async, Badge, Card, CardHead, ErrorState, Icon, Meter, PageHeader, Skeleton } from '../components/ui';
+import { Async, Badge, Card, CardHead, ErrorState, Icon, Meter, Skeleton } from '../components/ui';
 import type { IconName, Tone } from '../components/ui';
 import { fmtBytes, fmtPct, fmtUptime, timeAgo } from '../format';
 import { useCountUp, useQuery } from '../hooks';

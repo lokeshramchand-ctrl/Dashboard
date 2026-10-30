@@ -13,8 +13,7 @@ export interface Site {
 function serverBlocks(src: string): string[] {
   const out: string[] = [];
   const re = /(^|[\s;}])server\s*\{/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(src))) {
+  while (re.exec(src)) {
     let depth = 1;
     let i = re.lastIndex;
     const start = i;

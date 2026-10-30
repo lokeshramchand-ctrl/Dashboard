@@ -4,12 +4,13 @@ import { Async, Badge, Card, CardHead, Chips, EmptyState, HoldButton, Icon, Menu
 import type { IconName } from '../components/ui';
 import { kindBadge, KV, tidy, LogList, RecurringTable, RrdCard, SINCE, TaskTable, TimeframePicker } from '../components/Pve';
 import GuestWindows from './GuestWindows';
+import GuestQemu, { waitTask } from './GuestQemu';
 import { AskAI, buildPrompt } from '../components/AskAI';
 import { fmtBytes, fmtPct, fmtUptime, sleep } from '../format';
 import { useGuestEvents, useQuery, useToast } from '../hooks';
 import type { ConfigRow, GuestAction, GuestStatusDetail, Timeframe } from '../types';
 
-type Tab = 'summary' | 'hardware' | 'options' | 'snapshots' | 'tasks' | 'logs' | 'windows';
+type Tab = 'summary' | 'hardware' | 'options' | 'snapshots' | 'tasks' | 'logs' | 'windows' | 'qemu';
 const VERB: Record<GuestAction, string> = { start: 'Start', shutdown: 'Shutdown', stop: 'Stop', reboot: 'Reboot', reset: 'Reset', suspend: 'Pause', resume: 'Resume' };
 const EXPLAIN: Partial<Record<GuestAction, string>> = {
   shutdown: 'The guest will be asked to shut down gracefully.',
@@ -22,7 +23,7 @@ const EXPLAIN: Partial<Record<GuestAction, string>> = {
 const HW = /^(memory|balloon|cores|sockets|cpu|cpulimit|cpuunits|vcpus|numa|bios|machine|scsihw|swap|rootfs|mp\d+|(ide|sata|scsi|virtio|efidisk|tpmstate|unused)\d+|net\d+|hostpci\d+|usb\d+|serial\d+|audio\d+|vga|rng\d+|arch)$/;
 
 export default function GuestDetail({ vmid, tab: initial }: { vmid: number; tab?: string }) {
-  const [tab, setTab] = useState<Tab>((['summary', 'hardware', 'options', 'snapshots', 'tasks', 'logs', 'windows'].includes(initial ?? '') ? initial : 'summary') as Tab);
+  const [tab, setTab] = useState<Tab>((['summary', 'hardware', 'options', 'snapshots', 'tasks', 'logs', 'windows', 'qemu'].includes(initial ?? '') ? initial : 'summary') as Tab);
   const st = useQuery(() => api.guestStatus(vmid), [vmid], 4000);
   const cfg = useQuery(() => api.guestConfig(vmid), [vmid], 30_000);
   const toast = useToast();
@@ -74,7 +75,7 @@ export default function GuestDetail({ vmid, tab: initial }: { vmid: number; tab?
       <Chips value={tab} onChange={go} options={[
         { id: 'summary', label: 'Summary' }, { id: 'hardware', label: g?.type === 'lxc' ? 'Resources' : 'Hardware' }, { id: 'options', label: 'Options' },
         { id: 'snapshots', label: 'Snapshots' }, { id: 'tasks', label: 'Task history' }, { id: 'logs', label: 'Logs & failures' },
-        ...(g?.type === 'qemu' ? [{ id: 'windows' as const, label: 'Windows' }] : []),
+        ...(g?.type === 'qemu' ? [{ id: 'qemu' as const, label: 'QEMU' }, { id: 'windows' as const, label: 'Windows' }] : []),
       ]} />
       {st.data === undefined && st.error ? (
         <Card><EmptyState icon="alert" title="Couldn't load this guest" hint={st.error.message} action={<a className="btn" href="#/guests">Back to guests</a>} /></Card>
@@ -86,9 +87,10 @@ export default function GuestDetail({ vmid, tab: initial }: { vmid: number; tab?
               {(rows) => <ConfigTable rows={rows.filter((r) => (tab === 'hardware') === HW.test(r.key))} />}
             </Async>
           )}
-          {tab === 'snapshots' && <Snapshots vmid={vmid} />}
+          {tab === 'snapshots' && <Snapshots vmid={vmid} protectedGuest={!!g?.protected} running={g?.status === 'running'} isVm={g?.type === 'qemu'} />}
           {tab === 'tasks' && <GuestTasks vmid={vmid} />}
           {tab === 'logs' && <GuestLogsTab vmid={vmid} />}
+          {tab === 'qemu' && <GuestQemu vmid={vmid} running={g?.status === 'running'} />}
           {tab === 'windows' && <GuestWindows vmid={vmid} />}
         </>
       )}
@@ -211,31 +213,84 @@ function ConfigTable({ rows }: { rows: ConfigRow[] }) {
   );
 }
 
-function Snapshots({ vmid }: { vmid: number }) {
+function Snapshots({ vmid, protectedGuest, running, isVm }: { vmid: number; protectedGuest: boolean; running: boolean; isVm: boolean }) {
   const q = useQuery(() => api.snapshots(vmid), [vmid], 30_000);
+  const toast = useToast();
+  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState('');
+  const [desc, setDesc] = useState('');
+  const [ram, setRam] = useState(false);
+  const [rollback, setRollback] = useState<string | null>(null);
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const valid = /^[A-Za-z][A-Za-z0-9_-]{0,39}$/.test(name);
+
+  async function act(label: string, fn: () => Promise<{ taskId: string }>) {
+    setBusy(true);
+    try { await waitTask((await fn()).taskId); toast.success(`${label} completed`); } catch (e) { toast.error(`${label} failed: ${(e as Error).message}`); } finally { setBusy(false); q.reload(); }
+  }
+
   return (
-    <Async q={q} rows={3} h={44}>
-      {(list) => {
-        const snaps = list.filter((s) => !s.current);
-        if (!snaps.length) return <Card><EmptyState icon="camera" title="No snapshots" hint="This guest has no snapshots. Only the current state exists." /></Card>;
-        // Walk the parent chain so the list reads oldest → newest → "NOW", like the PVE tree.
-        const depth = (s: { parent: string | null }): number => { let d = 0, p = s.parent; while (p && d < 50) { d++; p = list.find((x) => x.name === p)?.parent ?? null; } return d; };
-        const ordered = [...list].sort((a, b) => depth(a) - depth(b));
-        return (
-          <div className="card table">
-            <div className="dt-row dt-snap g-head"><span>Name</span><span>RAM</span><span>Date</span><span>Description</span></div>
-            {ordered.map((s) => (
-              <div key={s.name} className="dt-row dt-snap">
-                <span style={{ paddingLeft: depth(s) * 16 }}><b>{s.current ? 'NOW' : s.name}</b></span>
-                <span>{s.vmstate ? <Badge tone="blue">RAM</Badge> : <span className="muted">–</span>}</span>
-                <span className="muted">{s.time ? new Date(s.time * 1000).toLocaleString() : '–'}</span>
-                <span className="muted">{s.current ? 'You are here' : s.description || '–'}</span>
-              </div>
-            ))}
-          </div>
-        );
-      }}
-    </Async>
+    <>
+      <div className="toolbar">
+        <span className="muted grow">{protectedGuest ? 'Protected guest: snapshot changes are disabled.' : 'Snapshots are instant restore points; delete old ones, they slow the guest down.'}</span>
+        <button className="btn" disabled={protectedGuest || busy} onClick={() => { setName(`snap-${new Date().toISOString().slice(0, 10)}`); setDesc(''); setRam(false); setCreating(true); }}><Icon name="camera" size={14} />Take snapshot</button>
+      </div>
+      <Async q={q} rows={3} h={44}>
+        {(list) => {
+          const snaps = list.filter((s) => !s.current);
+          if (!snaps.length) return <Card><EmptyState icon="camera" title="No snapshots" hint="This guest has no snapshots. Only the current state exists." /></Card>;
+          // Walk the parent chain so the list reads oldest → newest → "NOW", like the PVE tree.
+          const depth = (s: { parent: string | null }): number => { let d = 0, p = s.parent; while (p && d < 50) { d++; p = list.find((x) => x.name === p)?.parent ?? null; } return d; };
+          const ordered = [...list].sort((a, b) => depth(a) - depth(b));
+          return (
+            <div className="card table">
+              <div className="dt-row dt-snap act g-head"><span>Name</span><span>RAM</span><span>Date</span><span>Description</span><span /></div>
+              {ordered.map((s) => (
+                <div key={s.name} className="dt-row dt-snap act">
+                  <span style={{ paddingLeft: depth(s) * 16 }}><b>{s.current ? 'NOW' : s.name}</b></span>
+                  <span>{s.vmstate ? <Badge tone="blue">RAM</Badge> : <span className="muted">–</span>}</span>
+                  <span className="muted">{s.time ? new Date(s.time * 1000).toLocaleString() : '–'}</span>
+                  <span className="muted">{s.current ? 'You are here' : s.description || '–'}</span>
+                  <span className="row-actions">
+                    {!s.current && !protectedGuest && (
+                      <>
+                        <button className="btn" disabled={busy} onClick={() => { setTyped(''); setRollback(s.name); }}>Roll back</button>
+                        <HoldButton danger onConfirm={() => act(`Delete ${s.name}`, () => api.snapshotDelete(vmid, s.name))}>Delete</HoldButton>
+                      </>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          );
+        }}
+      </Async>
+
+      {creating && (
+        <Modal title="Take snapshot" onClose={() => setCreating(false)} footer={
+          <>
+            <button className="btn" onClick={() => setCreating(false)}>Cancel</button>
+            <button className="btn btn-primary" disabled={!valid} onClick={() => { setCreating(false); act(`Snapshot ${name}`, () => api.snapshotCreate(vmid, { name, description: desc, vmstate: ram })); }}>Create</button>
+          </>
+        }>
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (letters, digits, - and _)" aria-label="Snapshot name" autoFocus />
+          <input className="input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Description (optional)" aria-label="Description" />
+          {isVm && running && <label className="muted small" style={{ display: 'flex', gap: 8, marginTop: 12 }}><input type="checkbox" checked={ram} onChange={(e) => setRam(e.target.checked)} />Include RAM (resume exactly where it is now; slower and larger)</label>}
+        </Modal>
+      )}
+      {rollback && (
+        <Modal title={`Roll back to ${rollback}?`} onClose={() => setRollback(null)} footer={
+          <>
+            <button className="btn" onClick={() => setRollback(null)}>Cancel</button>
+            <button className="btn btn-danger" disabled={typed !== rollback} onClick={() => { const n = rollback; setRollback(null); act(`Rollback to ${n}`, () => api.snapshotRollback(vmid, n)); }}>Roll back</button>
+          </>
+        }>
+          <p className="muted">The guest returns to this snapshot and everything changed since is lost. Type <b>{rollback}</b> to confirm.</p>
+          <input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} aria-label="Type the snapshot name" autoFocus />
+        </Modal>
+      )}
+    </>
   );
 }
 
