@@ -95,3 +95,7 @@ All writes refuse protected guests (403 `PROTECTED`) and are audited (`action: s
 - `GET /guests/:vmid/backups` -> `{storages[], backups[{volid, storage, size, time, format, notes, protected}]}` (newest first; empty when the token cannot see a backup storage).
 - `POST /guests/:vmid/backup` `{storage, mode?: snapshot|suspend|stop}` -> `{taskId}` (vzdump, zstd; token needs `VM.Backup` and `Datastore.AllocateSpace`).
 - `POST /guests/:vmid/qemu/sendkey` `{key: ctrl-alt-delete|ctrl-alt-f1|ctrl-alt-f2|esc|win|alt-f4}` -> `{taskId: null}` (running VMs only; token needs `VM.Console`).
+
+## GET /api/loki/analytics?since=1h|6h|24h|7d (max 31d)
+
+Read-only, computed live from Loki (LogQL metric queries), cached 15 s. Counts are plain numbers of log lines / requests in the window; `errorRate` is a 0..1 fraction of 5xx over all requests; `p95` is seconds (nginx `$request_time`) or null; series `t` is ISO time, `stepSeconds` the bucket size. `logs.series` buckets are `error|warning|other` (journal/nginx-error/app levels normalised); `web.series` buckets are `ok|redirect|client|server|other` (2xx..5xx). `health.silent` lists sources that logged in the last 24 h but not in the last 15 min.
