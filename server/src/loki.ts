@@ -16,10 +16,11 @@ async function loki<T>(path: string, params: Record<string, string | number | un
   try {
     res = await fetch(u, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(30_000) });
   } catch (e) {
-    throw new HttpError(502, 'LOKI_UNREACHABLE', `Cannot reach Loki: ${(e as Error).message}`);
+    console.error('loki unreachable:', (e as Error).message);
+    throw new HttpError(502, 'LOKI_UNREACHABLE', 'Cannot reach Loki');
   }
   if (res.status === 400) throw new HttpError(400, 'BAD_QUERY', (await res.text().catch(() => '')).trim().slice(0, 300) || 'Loki rejected the query');
-  if (!res.ok) throw new HttpError(502, 'LOKI_ERROR', `Loki ${res.status}: ${(await res.text().catch(() => '')).slice(0, 200)}`);
+  if (!res.ok) throw new HttpError(502, 'LOKI_ERROR', `Loki returned ${res.status}`);
   return (await res.json()) as T;
 }
 

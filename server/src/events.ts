@@ -211,7 +211,8 @@ export function registerLogs(app: FastifyInstance) {
   });
 
   app.get<{ Querystring: { priority?: string; unit?: string; since?: string; boot?: string; q?: string; kernel?: string; limit?: string } }>('/api/logs/journal', async (req) => {
-    const { priority, unit, since, boot, q, kernel } = req.query;
+    const str = (v: unknown) => (typeof v === 'string' ? v : v === undefined ? undefined : (() => { throw new HttpError(400, 'BAD_REQUEST', 'Query parameters must be single values'); })());
+    const priority = str(req.query.priority), unit = str(req.query.unit), since = str(req.query.since), boot = str(req.query.boot), q = str(req.query.q), kernel = str(req.query.kernel);
     const limit = Math.min(Math.max(parseInt(req.query.limit ?? '200', 10) || 200, 1), 1000);
     const args = ['-n', String(limit), '-r'];
     if (priority) {

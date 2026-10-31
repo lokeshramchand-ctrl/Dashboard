@@ -196,3 +196,13 @@ export interface LogAnalytics {
   };
   health: { silent: string[] };
 }
+
+export interface VmAgent {
+  available: boolean; reason?: string; hostname?: string | null;
+  os?: { name: string | null; version: string | null; build: string | null; arch: string | null } | null;
+  interfaces?: { name: string; mac: string | null; ips: { ip: string; v6: boolean; prefix: number }[] }[];
+  volumes?: { mount: string; type: string; used: number; total: number }[];
+  guestTime?: number | null;
+}
+export interface VmIsos { isos: { volid: string; name: string; size: number; storage: string }[]; drives: { slot: string; volid: string | null }[] }
+export interface VmConfigChange { cores?: number; memoryMb?: number; balloonMb?: number; onboot?: boolean; agent?: boolean; description?: string; name?: string }

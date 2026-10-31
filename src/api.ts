@@ -1,7 +1,7 @@
 import type {
   AppConfig, Guest, GuestAction, GrafanaDashboard, GrafanaPanel, KumaIncident, KumaMonitor,
   JournalLine, LogSummary, NginxSite, Overview, PromResult, SsoConfig, SystemEvent, Task,
-  LokiStatus, LokiLine, LokiHistogram, LogAnalytics, AiInfo, ConfigRow, Diagnostics, Disk, GpuInfo, GuestLogs, WindowsReport, LogLine, Sensor, NotifyInfo, NotifySettings, GuestStatusDetail, NetIface, NodeInfo, PveTask, RrdPoint, Service, Snapshot, Storage, Timeframe, QemuDevices, BackupList,
+  LokiStatus, LokiLine, LokiHistogram, LogAnalytics, AiInfo, ConfigRow, Diagnostics, Disk, GpuInfo, GuestLogs, WindowsReport, LogLine, Sensor, NotifyInfo, NotifySettings, GuestStatusDetail, NetIface, NodeInfo, PveTask, RrdPoint, Service, Snapshot, Storage, Timeframe, QemuDevices, BackupList, VmAgent, VmIsos, VmConfigChange,
 } from './types';
 
 export class ApiError extends Error {
@@ -72,6 +72,12 @@ export const api = {
   qemuSendKey: (vmid: number, key: string) => post<{ taskId: null }>(`/guests/${vmid}/qemu/sendkey`, { key }),
   backups: (vmid: number) => get<BackupList>(`/guests/${vmid}/backups`),
   backupNow: (vmid: number, storage: string, mode = 'snapshot') => post<{ taskId: string }>(`/guests/${vmid}/backup`, { storage, mode }),
+  vmAgent: (vmid: number) => get<VmAgent>(`/guests/${vmid}/vm/agent`),
+  vmIsos: (vmid: number) => get<VmIsos>(`/guests/${vmid}/vm/isos`),
+  vmMedia: (vmid: number, slot: string, iso: string | null) => post<{ taskId: null }>(`/guests/${vmid}/vm/media`, { slot, iso }),
+  vmConfig: (vmid: number, c: VmConfigChange) => post<{ taskId: null }>(`/guests/${vmid}/vm/config`, c),
+  vmNic: (vmid: number, key: string, linkDown: boolean) => post<{ taskId: null }>(`/guests/${vmid}/vm/nic`, { key, linkDown }),
+  vmClone: (vmid: number, name: string) => post<{ taskId: string }>(`/guests/${vmid}/vm/clone`, { name }),
   node: () => get<NodeInfo>('/node'),
   nodeRrd: (tf: Timeframe) => get<RrdPoint[]>(`/node/rrd?timeframe=${tf}`),
   network: () => get<NetIface[]>('/node/network'),

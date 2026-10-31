@@ -92,7 +92,7 @@ export function parseDevices(c: Record<string, unknown>): QemuDevices {
   return out;
 }
 
-async function guard(req: { user?: { username: string }; ip: string }, g: Guest, action: string, extra: Record<string, unknown> = {}) {
+export async function guard(req: { user?: { username: string }; ip: string }, g: Guest, action: string, extra: Record<string, unknown> = {}) {
   const base = { ts: new Date(), user: req.user!.username, ip: req.ip, vmid: g.vmid, name: g.name, action };
   if (g.protected) {
     await col.audit().insertOne({ ...base, result: 'refused', reason: 'PROTECTED' });
@@ -103,7 +103,7 @@ async function guard(req: { user?: { username: string }; ip: string }, g: Guest,
   };
 }
 
-async function run(done: (t?: string, e?: string) => Promise<void>, fn: () => Promise<string | null>) {
+export async function run(done: (t?: string, e?: string) => Promise<void>, fn: () => Promise<string | null>) {
   try {
     const taskId = await fn();
     await done(taskId ?? undefined);

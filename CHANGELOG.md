@@ -4,6 +4,20 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Security
+- **Critical:** the `/api` auth hook tested the raw URL, but Fastify decodes percent-escapes before routing, so `/%61pi/guests` (and every other route, including POST actions) skipped authentication. The guard now checks the decoded path and the matched route.
+- Login throttling also counts failures per IP (spraying many usernames), failed-login usernames are sanitised before logging.
+- API rate limiter (600 reads / 60 writes per minute per IP), `Sec-Fetch-Site: cross-site` refused on writes, SSE stream cap (50), repeated query params rejected with 400 on the journal route.
+- Upstream (Proxmox, Loki, AI endpoint) error bodies and internal hostnames are logged server-side, not returned to the browser.
+- Guest list is cached for 1.5 s and de-duplicated in flight (every guest route re-fetched it from Proxmox).
+
+### Added (VM management)
+- **Manage** tab on VM pages: guest-agent facts (hostname, OS, IPs, volumes), CPU/RAM/balloon/name/notes/autostart/agent editing, ISO mount/eject, virtual NIC unplug/plug, full clone. Routes `/api/guests/:vmid/vm/{agent,isos,media,config,nic,clone}`.
+- `scripts/bench.mjs`: security probes and latency/throughput benchmark.
+
+### Changed
+- bencho.dev-inspired skin (warm paper neutrals, Inter, glass cards, pill tabs, spring motion); new and corrected icons.
+
 ### Removed
 - Unused `SearchBox` component and dead imports/variables.
 

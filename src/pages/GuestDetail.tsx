@@ -5,12 +5,13 @@ import type { IconName } from '../components/ui';
 import { kindBadge, KV, tidy, LogList, RecurringTable, RrdCard, SINCE, TaskTable, TimeframePicker } from '../components/Pve';
 import GuestWindows from './GuestWindows';
 import GuestQemu, { waitTask } from './GuestQemu';
+import GuestManage from './GuestManage';
 import { AskAI, buildPrompt } from '../components/AskAI';
 import { fmtBytes, fmtPct, fmtUptime, sleep } from '../format';
 import { useGuestEvents, useQuery, useToast } from '../hooks';
 import type { ConfigRow, GuestAction, GuestStatusDetail, Timeframe } from '../types';
 
-type Tab = 'summary' | 'hardware' | 'options' | 'snapshots' | 'tasks' | 'logs' | 'windows' | 'qemu';
+type Tab = 'summary' | 'hardware' | 'options' | 'snapshots' | 'tasks' | 'logs' | 'windows' | 'qemu' | 'manage';
 const VERB: Record<GuestAction, string> = { start: 'Start', shutdown: 'Shutdown', stop: 'Stop', reboot: 'Reboot', reset: 'Reset', suspend: 'Pause', resume: 'Resume' };
 const EXPLAIN: Partial<Record<GuestAction, string>> = {
   shutdown: 'The guest will be asked to shut down gracefully.',
@@ -23,7 +24,7 @@ const EXPLAIN: Partial<Record<GuestAction, string>> = {
 const HW = /^(memory|balloon|cores|sockets|cpu|cpulimit|cpuunits|vcpus|numa|bios|machine|scsihw|swap|rootfs|mp\d+|(ide|sata|scsi|virtio|efidisk|tpmstate|unused)\d+|net\d+|hostpci\d+|usb\d+|serial\d+|audio\d+|vga|rng\d+|arch)$/;
 
 export default function GuestDetail({ vmid, tab: initial }: { vmid: number; tab?: string }) {
-  const [tab, setTab] = useState<Tab>((['summary', 'hardware', 'options', 'snapshots', 'tasks', 'logs', 'windows', 'qemu'].includes(initial ?? '') ? initial : 'summary') as Tab);
+  const [tab, setTab] = useState<Tab>((['summary', 'hardware', 'options', 'snapshots', 'tasks', 'logs', 'windows', 'qemu', 'manage'].includes(initial ?? '') ? initial : 'summary') as Tab);
   const st = useQuery(() => api.guestStatus(vmid), [vmid], 4000);
   const cfg = useQuery(() => api.guestConfig(vmid), [vmid], 30_000);
   const toast = useToast();
@@ -75,7 +76,7 @@ export default function GuestDetail({ vmid, tab: initial }: { vmid: number; tab?
       <Chips value={tab} onChange={go} options={[
         { id: 'summary', label: 'Summary' }, { id: 'hardware', label: g?.type === 'lxc' ? 'Resources' : 'Hardware' }, { id: 'options', label: 'Options' },
         { id: 'snapshots', label: 'Snapshots' }, { id: 'tasks', label: 'Task history' }, { id: 'logs', label: 'Logs & failures' },
-        ...(g?.type === 'qemu' ? [{ id: 'qemu' as const, label: 'QEMU' }, { id: 'windows' as const, label: 'Windows' }] : []),
+        ...(g?.type === 'qemu' ? [{ id: 'manage' as const, label: 'Manage' }, { id: 'qemu' as const, label: 'QEMU' }, { id: 'windows' as const, label: 'Windows' }] : []),
       ]} />
       {st.data === undefined && st.error ? (
         <Card><EmptyState icon="alert" title="Couldn't load this guest" hint={st.error.message} action={<a className="btn" href="#/guests">Back to guests</a>} /></Card>
@@ -90,6 +91,7 @@ export default function GuestDetail({ vmid, tab: initial }: { vmid: number; tab?
           {tab === 'snapshots' && <Snapshots vmid={vmid} protectedGuest={!!g?.protected} running={g?.status === 'running'} isVm={g?.type === 'qemu'} />}
           {tab === 'tasks' && <GuestTasks vmid={vmid} />}
           {tab === 'logs' && <GuestLogsTab vmid={vmid} />}
+          {tab === 'manage' && <GuestManage vmid={vmid} running={g?.status === 'running'} protectedGuest={!!g?.protected} />}
           {tab === 'qemu' && <GuestQemu vmid={vmid} running={g?.status === 'running'} />}
           {tab === 'windows' && <GuestWindows vmid={vmid} />}
         </>

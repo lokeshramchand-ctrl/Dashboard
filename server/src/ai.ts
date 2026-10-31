@@ -45,11 +45,11 @@ export function registerAi(app: FastifyInstance) {
         signal: AbortSignal.timeout(90_000),
       });
     } catch (e) {
-      throw new HttpError(502, 'AI_UNREACHABLE', `Cannot reach the AI endpoint: ${(e as Error).message}`);
+      throw new HttpError(502, 'AI_UNREACHABLE', 'Cannot reach the AI endpoint');
     }
     if (!res.ok) {
-      const t = await res.text().catch(() => '');
-      throw new HttpError(502, 'AI_ERROR', `AI endpoint returned ${res.status}: ${t.slice(0, 200) || res.statusText}`);
+      console.error('ai endpoint error:', (await res.text().catch(() => '')).slice(0, 300));
+      throw new HttpError(502, 'AI_ERROR', `AI endpoint returned ${res.status}`);
     }
     const data = (await res.json().catch(() => null)) as { choices?: { message?: { content?: unknown } }[] } | null;
     const answer = data?.choices?.[0]?.message?.content;

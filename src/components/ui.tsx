@@ -5,7 +5,7 @@ import type { Query } from '../hooks';
 import { InView, Reveal, RevealWords } from './Reveal';
 
 const P: Record<string, string> = {
-  overview: 'M3 5a1 1 0 011-1h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1zM8 20h8M12 16v4',
+  overview: 'M4 4h7v9H4zM13 4h7v5h-7zM13 11h7v9h-7zM4 15h7v5H4z',
   monitor: 'M3 5a1 1 0 011-1h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1zM8 20h8M12 16v4',
   network: 'M9 3h6v5H9zM3 16h6v5H3zM15 16h6v5h-6zM12 8v4M6 16v-4h12v4',
   analytics: 'M4 4v16h16M8 16v-4M12 16V8M16 16v-6',
@@ -25,7 +25,7 @@ const P: Record<string, string> = {
   x: 'M6 6l12 12M18 6L6 18',
   logout: 'M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9',
   cpu: 'M9 9h6v6H9zM4 9H2M4 15H2M22 9h-2M22 15h-2M9 4V2M15 4V2M9 22v-2M15 22v-2M6 4h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z',
-  memory: 'M3 8h18v8H3zM7 8v8M11 8v8M15 8v8M19 8v8M6 16v3M18 16v3',
+  memory: 'M3 7h18v9H3zM7 11v1M12 11v1M17 11v1M6 16v3M10 16v3M14 16v3M18 16v3',
   disk: 'M12 21c4.97 0 9-1.8 9-4V7c0-2.2-4.03-4-9-4S3 4.8 3 7v10c0 2.2 4.03 4 9 4zM3 7c0 2.2 4.03 4 9 4s9-1.8 9-4M3 12c0 2.2 4.03 4 9 4s9-1.8 9-4',
   clock: 'M12 21a9 9 0 100-18 9 9 0 000 18zM12 7v5l3 2',
   gamepad: 'M6 12h4M8 10v4M15 13h.01M18 11h.01M17.3 5H6.7a4 4 0 00-3.9 3.1l-1.5 6.2a2.5 2.5 0 004.2 2.3L8 14h8l2.5 2.6a2.5 2.5 0 004.2-2.3l-1.5-6.2A4 4 0 0017.3 5z',
@@ -46,13 +46,40 @@ const P: Record<string, string> = {
   node: 'M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01M12 7h4M12 17h4',
   settings: 'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z',
   bell: 'M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0',
+  eject: 'M12 4l8 10H4zM4 19h16',
+  plus: 'M12 5v14M5 12h14',
+  minus: 'M5 12h14',
+  trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3',
+  edit: 'M4 20h4L19 9a2.1 2.1 0 00-3-3L5 17zM14 7l3 3',
+  download: 'M12 4v12M7 11l5 5 5-5M5 20h14',
+  upload: 'M12 20V8M7 13l5-5 5 5M5 4h14',
+  shield: 'M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6zM9 12l2 2 4-4',
+  key: 'M12 15a4 4 0 11-8 0 4 4 0 018 0zM10.8 12.2L20 3M16 7l3 3',
+  link: 'M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3A4 4 0 0011 18.7l1-1',
+  plug: 'M9 3v5M15 3v5M6 8h12v3a6 6 0 01-12 0zM12 17v4',
+  unplug: 'M9 3v5M15 3v5M6 8h12v3a6 6 0 01-12 0zM12 17v4M3 3l18 18',
+  disc: 'M12 21a9 9 0 100-18 9 9 0 000 18zM12 14.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z',
+  terminal: 'M4 5h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1zM7 10l3 2-3 2M12 15h5',
+  layers: 'M12 3l9 5-9 5-9-5zM3 13l9 5 9-5M3 17.5l9 5 9-5',
+  activity: 'M3 12h4l3-8 4 16 3-8h4',
+  info: 'M12 21a9 9 0 100-18 9 9 0 000 18zM12 11v6M12 7.5h.01',
+  zap: 'M13 2L4 14h7l-1 8 9-12h-7z',
+  windows: 'M3 5.5l7.5-1v7H3zM12 4.3L21 3v8.5h-9zM3 13h7.5v7l-7.5-1zM12 13h9v8l-9-1.3z',
+  benchmark: 'M4 20a9 9 0 1116 0M12 20l4-7M7 12h.01M12 7h.01M17 12h.01',
+  filter: 'M3 5h18l-7 8v6l-4 2v-8z',
+  home: 'M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z',
+  expand: 'M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7',
+  chevron: 'M9 6l6 6-6 6',
+  save: 'M5 4h11l3 3v12a1 1 0 01-1 1H6a1 1 0 01-1-1zM8 4v5h7V4M8 20v-6h8v6',
 };
 
 export type IconName = keyof typeof P;
 
+const SOLID = new Set<string>(['play', 'stop']);
+
 export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg className="ic" width={size} height={size} viewBox="0 0 24 24" fill={SOLID.has(name) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={size <= 14 ? 1.9 : size >= 24 ? 1.5 : 1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
       <path d={P[name]} />
     </svg>
   );
