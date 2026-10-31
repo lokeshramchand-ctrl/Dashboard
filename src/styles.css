@@ -870,3 +870,9 @@ a.link, .link { color: var(--signal); }
   .login-main { grid-template-columns: 1fr; gap: 28px; }
 }
 @media (hover: none) { .card:hover { box-shadow: var(--lift); } .side-link:hover { transform: none; } }
+
+/* Phones: title on its own line, actions wrap underneath instead of crowding it */
+@media (max-width: 560px) {
+  .page-head-row { flex-direction: column; align-items: flex-start; }
+  .page-actions { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; }
+}
