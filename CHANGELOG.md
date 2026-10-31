@@ -16,6 +16,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - `scripts/bench.mjs`: security probes and latency/throughput benchmark.
 
 ### Changed
+- Dependencies: `@fastify/static` 8 -> 10.1.8 (four high advisories: directory-listing traversal, encoded-separator and non-canonical-path guard bypasses).
+- obsidianui.dev-inspired refinements: status bars with hover dimming, ping status dots, rounded glass menus/toasts/palette, oklch status colours, pulsing skeletons, mobile polish.
 - bencho.dev-inspired skin (warm paper neutrals, Inter, glass cards, pill tabs, spring motion); new and corrected icons.
 
 ### Removed

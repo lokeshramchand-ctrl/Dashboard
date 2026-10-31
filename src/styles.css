@@ -815,3 +815,58 @@ h1, h2, h3 { letter-spacing: -.035em; }
 a.link, .link { color: var(--signal); }
 ::selection { background: var(--signal-soft); }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+/* ===== obsidianui.dev-inspired refinements (status bars, pills, glass, ping dots, focus) =====
+   Status colours in oklch with a graceful fallback (the logo-palette vars above still apply). */
+:root { --st-up: oklch(0.7 0.16 152); --st-warn: oklch(0.8 0.15 78); --st-down: oklch(0.63 0.21 25); --ease-out: cubic-bezier(.22, 1, .36, 1); --ease-slide: cubic-bezier(.65, 0, .076, 1); }
+[data-theme='dark'] { --st-up: oklch(0.72 0.15 152); --st-warn: oklch(0.82 0.14 80); --st-down: oklch(0.66 0.2 25); }
+:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; border-radius: 6px; }
+.tile-value, .kv dd, .dt-row b, .mg-vol, .badge, .chips em { font-variant-numeric: tabular-nums; }
+
+/* Status bars (heartbeats): hover dims siblings, active bar lifts */
+.hbar { gap: 2px; height: 32px; }
+.hb { height: 28px; border-radius: 2px; background: var(--st-up); opacity: .75; transition: opacity .15s ease-out, transform .15s ease-out; }
+.hbar:hover .hb { opacity: .35; } .hbar .hb:hover { opacity: 1; transform: scaleY(1.08); }
+.hb-down { background: var(--st-down); opacity: 1; } .hb-pending { background: var(--st-warn); opacity: 1; } .hb-maintenance { background: var(--blue); opacity: .9; }
+
+/* Status dot with ping */
+.badge .dot { position: relative; }
+.badge-red .dot::after, .badge-amber .dot::after, .badge-violet .dot::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: currentColor; animation: ping 1.8s var(--ease-out) infinite; }
+@keyframes ping { 0% { transform: scale(1); opacity: .6; } 80%, 100% { transform: scale(2.2); opacity: 0; } }
+
+/* Tiles, popovers, toasts, command palette, callouts: rounded glass surfaces */
+.tiles { border-radius: 20px; box-shadow: var(--lift); overflow: hidden; }
+.tile { transition: background .25s ease; } .tile-value { font-weight: 600; letter-spacing: -.04em; }
+.menu-pop, .cmdk { border-radius: 16px; background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(14px) saturate(1.3); box-shadow: var(--lift-hi), 0 24px 60px -20px rgba(0, 0, 0, .35); animation: pop .28s var(--ease-out); }
+.menu-pop button { border-radius: 10px; transition: background .2s ease, transform .25s var(--ease-out); } .menu-pop button:hover { transform: translateX(2px); }
+.toast { border-radius: 16px; backdrop-filter: blur(10px); box-shadow: var(--lift-hi); animation: pop .35s var(--ease-out); overflow: hidden; }
+.toast-bar { width: 3px; }
+.cmdk-input { border-radius: 16px 16px 0 0; }
+.callout, .stale { border-radius: 14px; }
+.tag { border-radius: 999px; padding: 1px 8px; }
+.icon-btn { border-radius: 999px; } .icon-btn:hover:not(:disabled) { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border); }
+.empty-ic { background: var(--surface-2); border: 0; box-shadow: inset 0 0 0 1px var(--border); }
+.skeleton { border-radius: 14px; animation: skpulse 1.6s ease-in-out infinite; background: var(--surface-2); background-size: auto; }
+@keyframes skpulse { 50% { opacity: .45; } }
+.table.card, .card.table { overflow: hidden; }
+.g-head { text-transform: none; letter-spacing: 0; font-size: 11.5px; }
+.kv div { border-bottom-style: dashed; }
+
+/* Login: glass card, pill inputs */
+.login form { border-radius: 24px; box-shadow: 0 30px 80px -30px rgba(23, 24, 26, .35), 0 0 0 1px rgba(23, 24, 26, .06); border: 0; }
+.login .btn-lg { height: 52px; font-weight: 600; }
+.login .input { border-radius: 14px; }
+
+/* Primary button: slide-fill "discover" feel (fill grows from the left under the label) */
+.btn-primary:hover:not(:disabled) { box-shadow: 0 8px 24px -10px rgba(23, 24, 26, .6); transform: translateY(-1px); }
+.btn-primary:active:not(:disabled) { transform: scale(.955); }
+
+/* Responsive polish */
+@media (max-width: 760px) {
+  .tiles { grid-template-columns: repeat(2, 1fr); } .tile { border-bottom: 1px solid var(--border); }
+  .chips { width: 100%; overflow-x: auto; } .page-head h1 { font-size: clamp(2rem, 9vw, 2.6rem); }
+  .toasts { left: 16px; right: 16px; bottom: 16px; max-width: none; }
+  .form-grid { grid-template-columns: 1fr; } .modal { width: calc(100vw - 24px); }
+  .login-main { grid-template-columns: 1fr; gap: 28px; }
+}
+@media (hover: none) { .card:hover { box-shadow: var(--lift); } .side-link:hover { transform: none; } }
