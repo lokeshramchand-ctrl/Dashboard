@@ -19,6 +19,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - Overview charts failed with `Grafana 502`: Grafana's container could not reach Prometheus (NAT `RETURN` rule for LAN-bound traffic). New optional `PROMETHEUS_URL` makes `/api/metrics/query` query Prometheus directly.
 
 ### Changed
+- Merged the pending Dependabot updates (undici 8, @types/node 26, Vite 8 with @vitejs/plugin-react 6, TypeScript 7 for mobile, setup-node 7, build-push-action 7) and removed the Dependabot configuration. The Proxmox client now uses undici's own fetch with its Agent (undici 8 rejects Node's bundled fetch).
 - Dependencies: `@fastify/static` 8 -> 10.1.8 (four high advisories: directory-listing traversal, encoded-separator and non-canonical-path guard bypasses).
 - obsidianui.dev-inspired refinements: status bars with hover dimming, ping status dots, rounded glass menus/toasts/palette, oklch status colours, pulsing skeletons, mobile polish.
 - bencho.dev-inspired skin (warm paper neutrals, Inter, glass cards, pill tabs, spring motion); new and corrected icons.

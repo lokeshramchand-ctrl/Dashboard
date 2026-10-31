@@ -1,4 +1,5 @@
-import { Agent } from 'undici';
+// Use undici's own fetch together with its Agent: Node's bundled fetch rejects a dispatcher from a different undici major.
+import { Agent, fetch } from 'undici';
 import { cfg, pveConfigured } from './config.js';
 import { HttpError, notConfigured } from './errors.js';
 
@@ -6,14 +7,13 @@ const dispatcher = cfg.pveInsecureTls ? new Agent({ connect: { rejectUnauthorize
 
 export async function pve<T>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, form?: Record<string, string>): Promise<T> {
   if (!pveConfigured()) throw notConfigured('Proxmox');
-  let res: Response;
+  let res: Awaited<ReturnType<typeof fetch>>;
   try {
     res = await fetch(`${cfg.pveUrl}/api2/json${path}`, {
       method,
       headers: { Authorization: `PVEAPIToken=${cfg.pveTokenId}=${cfg.pveTokenSecret}` },
       body: form ? new URLSearchParams(form) : undefined,
       signal: AbortSignal.timeout(15_000),
-      // @ts-expect-error undici dispatcher is not in the DOM fetch typings
       dispatcher,
     });
   } catch (e) {
