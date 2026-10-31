@@ -36,7 +36,16 @@ function map(type: 'lxc' | 'qemu', r: any): Guest {
   };
 }
 
+// Short-lived cache: every guest route resolves its vmid through the list, and Proxmox is slow.
+let listCache: { at: number; rows: Guest[] } | null = null;
+let listInflight: Promise<Guest[]> | null = null;
+export const invalidateGuests = () => { listCache = null; };
 export async function listGuests(): Promise<Guest[]> {
+  if (listCache && Date.now() - listCache.at < 1500) return listCache.rows;
+  listInflight ??= fetchGuests().then((rows) => { listCache = { at: Date.now(), rows }; return rows; }).finally(() => { listInflight = null; });
+  return listInflight;
+}
+async function fetchGuests(): Promise<Guest[]> {
   const n = encodeURIComponent(cfg.pveNode);
   const [lxc, qemu] = await Promise.all([pve<any[]>('GET', `/nodes/${n}/lxc`), pve<any[]>('GET', `/nodes/${n}/qemu`)]);
   return [...lxc.map((r) => map('lxc', r)), ...qemu.filter((r) => !r.template).map((r) => map('qemu', r))]
@@ -128,6 +137,7 @@ export function registerGuests(app: FastifyInstance) {
 
     try {
       const taskId = await pve<string>('POST', `/nodes/${encodeURIComponent(cfg.pveNode)}/${g.type}/${vmid}/status/${action}`);
+      invalidateGuests();
       await col.audit().insertOne({ ...base, name: g.name, result: 'accepted', taskId });
       req.log.info({ user, vmid, action, taskId }, 'guest action');
       return { taskId };
@@ -175,6 +185,7 @@ export function registerGuests(app: FastifyInstance) {
   };
 
   app.get('/api/events', (req, reply) => {
+    if (clients.size >= 50) throw new HttpError(503, 'TOO_MANY_STREAMS', 'Too many open event streams');
     reply.hijack();
     const res = reply.raw;
     res.writeHead(200, {

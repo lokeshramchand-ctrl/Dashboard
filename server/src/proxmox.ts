@@ -17,11 +17,13 @@ export async function pve<T>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: st
       dispatcher,
     });
   } catch (e) {
-    throw new HttpError(502, 'PVE_UNREACHABLE', `Cannot reach Proxmox: ${(e as Error).message}`);
+    console.error('proxmox unreachable:', (e as Error).message);
+    throw new HttpError(502, 'PVE_UNREACHABLE', 'Cannot reach Proxmox');
   }
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new HttpError(502, 'PVE_ERROR', `Proxmox ${res.status}: ${text.slice(0, 200) || res.statusText}`);
+    console.error(`proxmox ${res.status} ${method} ${path}:`, text.slice(0, 300));
+    throw new HttpError(502, 'PVE_ERROR', `Proxmox returned ${res.status}${res.status === 403 ? ' (permission denied for the API token)' : ''}`);
   }
   return ((await res.json()) as { data: T }).data;
 }

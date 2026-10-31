@@ -48,13 +48,23 @@ export async function createSession(req: FastifyRequest, reply: FastifyReply, us
   });
 }
 
+function decodedPath(url: string): string {
+  const raw = url.split('?')[0];
+  try { return decodeURIComponent(raw); } catch { return raw; }
+}
+
 export function registerAuth(app: FastifyInstance) {
   // Everything under /api needs a valid session except login. Also blocks cross-site state changes.
   app.addHook('onRequest', async (req, reply) => {
-    const path = req.url.split('?')[0];
-    if (!path.startsWith('/api/')) return;
+    // Fastify decodes percent-escapes before routing ("/%61pi/x" reaches the /api/x handler), so the
+    // guard must test the decoded path AND the route that actually matched, never the raw URL alone.
+    const path = decodedPath(req.url);
+    const routed = req.routeOptions?.url ?? '';
+    if (!path.startsWith('/api/') && !routed.startsWith('/api/')) return;
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {
+      const fetchSite = req.headers['sec-fetch-site'];
+      if (fetchSite === 'cross-site') throw new HttpError(403, 'BAD_ORIGIN', 'Cross-site request refused');
       const origin = req.headers.origin;
       if (origin) {
         const allowed = [req.headers.host, req.headers['x-forwarded-host']].filter(Boolean);
@@ -82,21 +92,22 @@ export function registerAuth(app: FastifyInstance) {
       throw new HttpError(400, 'BAD_REQUEST', 'Username and password are required');
     }
 
+    // Two counters: per ip+username (targeted guessing) and per ip (spraying many usernames).
     const key = `${req.ip}|${username}`;
-    const attempts = await col.attempts().findOne({ _id: key });
-    if (attempts && attempts.count >= MAX_ATTEMPTS) {
+    const ipKey = `ip|${req.ip}`;
+    const [attempts, ipAttempts] = await Promise.all([col.attempts().findOne({ _id: key }), col.attempts().findOne({ _id: ipKey })]);
+    if ((attempts && attempts.count >= MAX_ATTEMPTS) || (ipAttempts && ipAttempts.count >= MAX_ATTEMPTS * 4)) {
       throw new HttpError(429, 'RATE_LIMITED', 'Too many failed attempts. Try again in a few minutes.');
     }
 
     const user = await col.users().findOne({ username });
     const ok = verifyPassword(password, user?.passwordHash ?? DUMMY_HASH) && !!user;
     if (!ok || !user) {
-      await col.attempts().updateOne(
-        { _id: key },
-        { $inc: { count: 1 }, $setOnInsert: { expireAt: new Date(Date.now() + ATTEMPT_WINDOW_MS) } },
-        { upsert: true },
-      );
-      req.log.warn({ username, ip: req.ip }, 'failed login');
+      for (const _id of [key, ipKey]) {
+        await col.attempts().updateOne({ _id }, { $inc: { count: 1 }, $setOnInsert: { expireAt: new Date(Date.now() + ATTEMPT_WINDOW_MS) } }, { upsert: true });
+      }
+      // Only a bounded, printable slice is logged: a mistyped password in the username box must not hit the logs raw.
+      req.log.warn({ username: username.slice(0, 24).replace(/[^\w.@-]/g, '?'), ip: req.ip }, 'failed login');
       throw new HttpError(401, 'BAD_CREDENTIALS', 'Invalid username or password');
     }
 

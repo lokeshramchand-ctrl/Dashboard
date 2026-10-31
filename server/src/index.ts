@@ -17,6 +17,8 @@ import { registerDiagnostics } from './diagnostics.js';
 import { registerNode } from './node.js';
 import { registerWindows } from './windows.js';
 import { registerQemu } from './qemu.js';
+import { registerVmOps } from './vmops.js';
+import { registerRateLimit } from './ratelimit.js';
 import { registerNotify, startNotify } from './notify.js';
 import { registerOidc } from './oidc.js';
 import { registerLoki } from './loki.js';
@@ -69,6 +71,8 @@ app.addHook('onRequest', async (req, reply) => {
 
 await connectDb();
 await app.register(cookie);
+registerRateLimit(app);
+registerRateLimit(app);
 registerAuth(app);
 registerOidc(app);
 registerLogs(app);
@@ -79,6 +83,7 @@ registerNode(app);
 registerDiagnostics(app);
 registerWindows(app);
 registerQemu(app);
+registerVmOps(app);
 registerAi(app);
 registerNotify(app);
 registerHost(app);
