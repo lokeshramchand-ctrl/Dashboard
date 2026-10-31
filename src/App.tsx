@@ -108,6 +108,10 @@ function Shell({ user, config, onLogout }: { user: string; config: AppConfig; on
   }, [theme]);
   const cycleTheme = () => setTheme((t) => THEME_ORDER[(THEME_ORDER.indexOf(t) + 1) % THEME_ORDER.length]);
 
+  async function logoutAll() {
+    try { await api.logoutAll(); } catch { /* sessions may already be gone */ }
+    onLogout();
+  }
   async function logout() {
     try { await api.logout(); } catch { /* cookie may already be gone */ }
     onLogout();
@@ -147,6 +151,7 @@ function Shell({ user, config, onLogout }: { user: string; config: AppConfig; on
       { id: 'act-refresh', label: 'Refresh data', group: 'Actions', icon: 'refresh', run: bump },
       { id: 'act-theme', label: `Theme: ${THEME_LABEL[theme].replace(' theme', '')} — switch`, group: 'Actions', icon: THEME_ICON[theme], run: cycleTheme },
       { id: 'act-logout', label: 'Sign out', group: 'Actions', icon: 'logout', run: logout },
+      { id: 'act-logout-all', label: 'Sign out of all devices', group: 'Actions', icon: 'logout', run: logoutAll },
       ...guests.map((g) => ({ id: `guest-${g.vmid}`, label: g.name, hint: `${g.type} ${g.vmid} · ${g.status}`, group: 'Guests', icon: 'server' as const, run: go(`guests/${g.vmid}`) })),
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps

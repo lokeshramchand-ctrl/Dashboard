@@ -10,6 +10,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - API rate limiter (600 reads / 60 writes per minute per IP), `Sec-Fetch-Site: cross-site` refused on writes, SSE stream cap (50), repeated query params rejected with 400 on the journal route.
 - Upstream (Proxmox, Loki, AI endpoint) error bodies and internal hostnames are logged server-side, not returned to the browser.
 - Guest list is cached for 1.5 s and de-duplicated in flight (every guest route re-fetched it from Proxmox).
+- Content-Security-Policy no longer allows `style-src 'unsafe-inline'` (verified: no violations across the main pages).
+- Sessions expire after `SESSION_IDLE_MINUTES` (default 120) without use, and `POST /api/auth/logout-all` plus a "Sign out of all devices" command revoke every session of the caller.
+- `glob` and `minimatch` pinned to patched releases via npm `overrides`; `npm audit` reports 0 vulnerabilities for server and UI.
 
 ### Added (VM management)
 - **Manage** tab on VM pages: guest-agent facts (hostname, OS, IPs, volumes), CPU/RAM/balloon/name/notes/autostart/agent editing, ISO mount/eject, virtual NIC unplug/plug, full clone. Routes `/api/guests/:vmid/vm/{agent,isos,media,config,nic,clone}`.

@@ -40,7 +40,7 @@ export async function createSession(req: FastifyRequest, reply: FastifyReply, us
   const ttlMs = cfg.sessionTtlHours * 3600_000;
   await col.sessions().insertOne({
     tokenHash: sha256(token), userId, username,
-    createdAt: new Date(), expiresAt: new Date(Date.now() + ttlMs),
+    createdAt: new Date(), lastSeenAt: new Date(), expiresAt: new Date(Date.now() + ttlMs),
     ip: req.ip, userAgent: String(req.headers['user-agent'] ?? '').slice(0, 200),
   } as never);
   reply.setCookie(COOKIE, token, {
@@ -82,6 +82,15 @@ export function registerAuth(app: FastifyInstance) {
       reply.clearCookie(COOKIE, { path: '/' });
       throw new HttpError(401, 'UNAUTHENTICATED', 'Login required');
     }
+    // Idle timeout: lastSeenAt is refreshed at most once a minute to keep writes cheap.
+    const now = Date.now();
+    const last = (session.lastSeenAt ?? session.createdAt).getTime();
+    if (now - last > cfg.sessionIdleMinutes * 60_000) {
+      await col.sessions().deleteOne({ _id: session._id });
+      reply.clearCookie(COOKIE, { path: '/' });
+      throw new HttpError(401, 'UNAUTHENTICATED', 'Session expired from inactivity');
+    }
+    if (now - last > 60_000) await col.sessions().updateOne({ _id: session._id }, { $set: { lastSeenAt: new Date(now) } });
     req.user = { id: session.userId, username: session.username };
   });
 
@@ -123,6 +132,14 @@ export function registerAuth(app: FastifyInstance) {
     if (token) await col.sessions().deleteOne({ tokenHash: sha256(token) });
     reply.clearCookie(COOKIE, { path: '/' });
     return { ok: true };
+  });
+
+  // Sign out everywhere: drops every session of the caller (this browser included).
+  app.post('/api/auth/logout-all', async (req, reply) => {
+    const r = await col.sessions().deleteMany({ userId: req.user!.id });
+    reply.clearCookie(COOKIE, { path: '/' });
+    req.log.info({ username: req.user!.username, revoked: r.deletedCount }, 'sessions revoked');
+    return { ok: true, revoked: r.deletedCount };
   });
 
   app.get('/api/auth/me', async (req) => ({ username: req.user!.username }));

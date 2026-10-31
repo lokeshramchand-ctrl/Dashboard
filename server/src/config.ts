@@ -31,6 +31,8 @@ export const cfg = {
   mongoDb: env('MONGO_DB', 'homelab'),
 
   sessionTtlHours: Number(env('SESSION_TTL_HOURS', '12')),
+  // A session unused for this long is dropped even if its absolute lifetime has not ended.
+  sessionIdleMinutes: Number(env('SESSION_IDLE_MINUTES', '120')),
   cookieSecure: bool('COOKIE_SECURE', true),
 
   pveUrl: trim(env('PVE_URL')),

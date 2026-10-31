@@ -53,6 +53,7 @@ const del = <T,>(p: string) => req<T>('DELETE', p);
 export const api = {
   login: (username: string, password: string) => post<unknown>('/auth/login', { username, password }),
   logout: () => post<unknown>('/auth/logout'),
+  logoutAll: () => post<unknown>('/auth/logout-all'),
   ssoConfig: () => get<SsoConfig>('/auth/sso/config'),
   me: () => get<{ username: string }>('/auth/me'),
   overview: () => get<Overview>('/overview'),

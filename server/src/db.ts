@@ -4,7 +4,7 @@ import type { Db, ObjectId } from 'mongodb';
 import { cfg } from './config.js';
 
 export interface UserDoc { _id: ObjectId; username: string; passwordHash: string; createdAt: Date; lastLoginAt?: Date; ssoSub?: string }
-export interface SessionDoc { _id: ObjectId; tokenHash: string; userId: ObjectId; username: string; createdAt: Date; expiresAt: Date; ip: string; userAgent: string }
+export interface SessionDoc { _id: ObjectId; tokenHash: string; userId: ObjectId; username: string; createdAt: Date; lastSeenAt?: Date; expiresAt: Date; ip: string; userAgent: string }
 export interface AttemptDoc { _id: string; count: number; expireAt: Date }
 export interface AuditDoc {
   ts: Date; user: string; ip: string; vmid: number; /* 0 = the host itself */ name?: string; action: string;

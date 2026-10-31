@@ -44,7 +44,7 @@ const csp = [
   // The hash covers the inline theme-bootstrap in index.html (prevents a theme flash). It must
   // match that script's exact bytes; if that script changes, update this hash.
   "script-src 'self' 'sha256-PL8BUHH3EqfFPbHYkB9eG/+gE1CS5DfaL0WPuyX5x8Q='",
-  "style-src 'self' 'unsafe-inline'",
+  "style-src 'self'",
   "img-src 'self' data:",
   "font-src 'self' data:", // Vite inlines small font subsets as data: URIs
   "connect-src 'self'",
