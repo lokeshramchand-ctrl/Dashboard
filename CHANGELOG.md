@@ -15,6 +15,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - **Manage** tab on VM pages: guest-agent facts (hostname, OS, IPs, volumes), CPU/RAM/balloon/name/notes/autostart/agent editing, ISO mount/eject, virtual NIC unplug/plug, full clone. Routes `/api/guests/:vmid/vm/{agent,isos,media,config,nic,clone}`.
 - `scripts/bench.mjs`: security probes and latency/throughput benchmark.
 
+### Fixed
+- Overview charts failed with `Grafana 502`: Grafana's container could not reach Prometheus (NAT `RETURN` rule for LAN-bound traffic). New optional `PROMETHEUS_URL` makes `/api/metrics/query` query Prometheus directly.
+
 ### Changed
 - Dependencies: `@fastify/static` 8 -> 10.1.8 (four high advisories: directory-listing traversal, encoded-separator and non-canonical-path guard bypasses).
 - obsidianui.dev-inspired refinements: status bars with hover dimming, ping status dots, rounded glass menus/toasts/palette, oklch status colours, pulsing skeletons, mobile polish.

@@ -49,6 +49,7 @@ export const cfg = {
   grafanaPublicUrl: trim(env('GRAFANA_PUBLIC_URL') || env('GRAFANA_URL')), // what the browser opens/embeds
   grafanaToken: env('GRAFANA_TOKEN'),
   grafanaDsUid: env('GRAFANA_DS_UID'), // Prometheus datasource uid
+  promUrl: env('PROMETHEUS_URL').replace(/\/+$/, ''), // optional: query Prometheus directly instead of through Grafana's datasource proxy
 
   kumaUrl: trim(env('KUMA_URL')),
   kumaApiKey: env('KUMA_API_KEY'),

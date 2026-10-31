@@ -47,13 +47,22 @@ export function registerGrafana(app: FastifyInstance) {
 
   // PromQL proxy through Grafana's datasource proxy (read-only service account token).
   app.post<{ Body: { query?: string; start?: number; end?: number; step?: number } }>('/api/metrics/query', async (req) => {
-    if (!cfg.grafanaDsUid) throw notConfigured('Grafana datasource (GRAFANA_DS_UID)');
+    if (!cfg.grafanaDsUid && !cfg.promUrl) throw notConfigured('Metrics source (PROMETHEUS_URL or GRAFANA_DS_UID)');
     const { query, start, end, step } = req.body ?? {};
     const s = Number(start), e = Number(end), st = Number(step);
     if (!query || typeof query !== 'string' || query.length > 2000) throw new HttpError(400, 'BAD_REQUEST', 'query is required (max 2000 chars)');
     if (![s, e, st].every(Number.isFinite) || e <= s || st <= 0) throw new HttpError(400, 'BAD_REQUEST', 'start, end and step must be valid numbers (end > start, step > 0)');
     if ((e - s) / st > 5000) throw new HttpError(400, 'BAD_REQUEST', 'Too many points requested; increase step');
     const qs = new URLSearchParams({ query, start: String(s), end: String(e), step: String(st) });
+    if (cfg.promUrl) {
+      // Direct to Prometheus: independent of Grafana's own route to it. Read-only query_range.
+      let res: Response;
+      try { res = await fetch(`${cfg.promUrl}/api/v1/query_range?${qs}`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(20_000) }); }
+      catch (e) { console.error('prometheus unreachable:', (e as Error).message); throw new HttpError(502, 'PROMETHEUS_UNREACHABLE', 'Cannot reach Prometheus'); }
+      if (res.status === 400) throw new HttpError(400, 'BAD_QUERY', (await res.text().catch(() => '')).slice(0, 300) || 'Prometheus rejected the query');
+      if (!res.ok) { console.error('prometheus', res.status, (await res.text().catch(() => '')).slice(0, 300)); throw new HttpError(502, 'PROMETHEUS_ERROR', `Prometheus returned ${res.status}`); }
+      return (await res.json());
+    }
     return gf(`/api/datasources/proxy/uid/${encodeURIComponent(cfg.grafanaDsUid)}/api/v1/query_range?${qs}`);
   });
 }
