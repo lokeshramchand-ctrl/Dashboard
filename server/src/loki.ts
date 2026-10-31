@@ -41,7 +41,100 @@ const selector = (q: unknown) => {
 interface Streams { data: { result: { stream: Record<string, string>; values: [string, string][] }[] } }
 interface Matrix { data: { result: { metric: Record<string, string>; values: [number, string][] }[] } }
 
+// ---------- analytics: everything is a LogQL metric query, nothing is stored here ----------
+interface Vector { data: { result: { metric: Record<string, string>; value: [number, string] }[] } }
+const ERR = 'error|err|crit|alert|emerg|fatal';
+const lvlClass = (l: string | undefined): 'error' | 'warning' | 'other' =>
+  !l ? 'other' : new RegExp(`^(${ERR})$`).test(l) ? 'error' : /^warn(ing)?$/.test(l) ? 'warning' : 'other';
+const statusClass = (s: string | undefined): 'ok' | 'redirect' | 'client' | 'server' | 'other' =>
+  s?.[0] === '2' ? 'ok' : s?.[0] === '3' ? 'redirect' : s?.[0] === '4' ? 'client' : s?.[0] === '5' ? 'server' : 'other';
+
+async function instant(query: string, at: number): Promise<{ metric: Record<string, string>; v: number }[]> {
+  const r = await loki<Vector>('/loki/api/v1/query', { query, time: at });
+  return r.data.result.map((x) => ({ metric: x.metric, v: Number(x.value[1]) }));
+}
+async function range(query: string, w: { start: number; end: number }, step: number) {
+  const r = await loki<Matrix>('/loki/api/v1/query_range', { query, start: w.start, end: w.end, step });
+  return r.data.result;
+}
+const sumBy = (rows: { metric: Record<string, string>; v: number }[], key: (m: Record<string, string>) => string) => {
+  const o = new Map<string, number>();
+  for (const r of rows) o.set(key(r.metric), (o.get(key(r.metric)) ?? 0) + (Number.isFinite(r.v) ? r.v : 0));
+  return o;
+};
+const cache = new Map<string, { at: number; data: unknown }>();
+
+async function analytics(since: string) {
+  const hit = cache.get(since);
+  if (hit && Date.now() - hit.at < 15_000) return hit.data;
+  const w = window(since);
+  const R = `${Math.round(w.ms / 1000)}s`;
+  const at = w.end / 1e9;
+  const step = Math.max(Math.round(w.ms / 1000 / 48), 60); // ~48 buckets
+  const ALL = '{job=~".+"}';
+  const WEB = '{job="nginx-access"}';
+  const [byLevel, hostLines, hostErrs, unitErrs, status, vhostReq, vhostSrv, p95, quiet, seen, lvlSeries, webSeries] = await Promise.all([
+    instant(`sum by (level) (count_over_time(${ALL} [${R}]))`, at),
+    instant(`sum by (host) (count_over_time(${ALL} [${R}]))`, at),
+    instant(`sum by (host) (count_over_time({job=~".+", level=~"${ERR}"} [${R}]))`, at),
+    instant(`topk(8, sum by (unit, host) (count_over_time({job="systemd-journal", level=~"${ERR}"} [${R}])))`, at),
+    instant(`sum by (status) (count_over_time(${WEB} [${R}]))`, at),
+    instant(`sum by (vhost) (count_over_time(${WEB} [${R}]))`, at),
+    instant(`sum by (vhost) (count_over_time({job="nginx-access", status=~"5.."} [${R}]))`, at),
+    instant(`quantile_over_time(0.95, ${WEB} | unwrap rt [${R}]) by (vhost)`, at),
+    instant('sum by (host) (count_over_time({job="systemd-journal"} [15m]))', at),
+    instant('sum by (host) (count_over_time({job="systemd-journal"} [24h]))', at),
+    range(`sum by (level) (count_over_time(${ALL} [${step}s]))`, w, step),
+    range(`sum by (status) (count_over_time(${WEB} [${step}s]))`, w, step),
+  ]);
+
+  const lv = sumBy(byLevel, (m) => lvlClass(m.level));
+  const st = sumBy(status, (m) => statusClass(m.status));
+  const requests = [...st.values()].reduce((a, b) => a + b, 0);
+  const total = [...lv.values()].reduce((a, b) => a + b, 0);
+  const errByHost = sumBy(hostErrs, (m) => m.host ?? '?');
+  const srvByVhost = sumBy(vhostSrv, (m) => m.vhost ?? '?');
+  const p95By = sumBy(p95, (m) => m.vhost ?? '?');
+  const quietSet = new Set(quiet.map((r) => r.metric.host));
+
+  // time series bucketed by class
+  const bucket = <K extends string>(series: Awaited<ReturnType<typeof range>>, label: string, cls: (v: string | undefined) => K, keys: K[]) => {
+    const t = new Map<number, Record<string, number>>();
+    for (const s of series) for (const [ts, v] of s.values) {
+      const row = t.get(ts) ?? Object.fromEntries(keys.map((k) => [k, 0]));
+      const k = cls(s.metric[label]);
+      row[k] = (row[k] ?? 0) + Number(v);
+      t.set(ts, row);
+    }
+    return [...t.entries()].sort((a, b) => a[0] - b[0]).map(([ts, row]) => ({ t: new Date(ts * 1000).toISOString(), ...row }));
+  };
+
+  const data = {
+    since, stepSeconds: step,
+    logs: {
+      total, errors: lv.get('error') ?? 0, warnings: lv.get('warning') ?? 0, hosts: hostLines.length,
+      series: bucket(lvlSeries, 'level', lvlClass, ['error', 'warning', 'other']),
+      topHosts: hostLines.map((h) => ({ host: h.metric.host ?? '?', lines: h.v, errors: errByHost.get(h.metric.host ?? '?') ?? 0 }))
+        .sort((a, b) => b.errors - a.errors || b.lines - a.lines).slice(0, 10),
+      topUnits: unitErrs.map((u) => ({ unit: (u.metric.unit ?? 'kernel').replace(/\.service$/, ''), host: u.metric.host ?? '?', errors: u.v })).sort((a, b) => b.errors - a.errors),
+    },
+    web: {
+      requests, serverErrors: st.get('server') ?? 0, clientErrors: st.get('client') ?? 0,
+      errorRate: requests ? (st.get('server') ?? 0) / requests : 0,
+      series: bucket(webSeries, 'status', statusClass, ['ok', 'redirect', 'client', 'server', 'other']),
+      topVhosts: vhostReq.map((v) => ({ vhost: v.metric.vhost ?? '?', requests: v.v, errors5xx: srvByVhost.get(v.metric.vhost ?? '?') ?? 0, p95: p95By.get(v.metric.vhost ?? '?') ?? null }))
+        .sort((a, b) => b.requests - a.requests).slice(0, 12),
+    },
+    // pipeline health: sources that logged in the last 24 h but not in the last 15 min
+    health: { silent: seen.map((s) => s.metric.host ?? '?').filter((h) => !quietSet.has(h)).sort() },
+  };
+  cache.set(since, { at: Date.now(), data });
+  return data;
+}
+
 export function registerLoki(app: FastifyInstance) {
+  app.get<{ Querystring: { since?: string } }>('/api/loki/analytics', async (req) => analytics(req.query.since ?? '24h'));
+
   app.get('/api/loki/status', async () => {
     if (!lokiConfigured()) return { configured: false, ready: false, publicUrl: '', error: null, labels: [] as string[] };
     const base = { configured: true, publicUrl: cfg.lokiPublicUrl };

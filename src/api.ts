@@ -1,7 +1,7 @@
 import type {
   AppConfig, Guest, GuestAction, GrafanaDashboard, GrafanaPanel, KumaIncident, KumaMonitor,
   JournalLine, LogSummary, NginxSite, Overview, PromResult, SsoConfig, SystemEvent, Task,
-  LokiStatus, LokiLine, LokiHistogram, AiInfo, ConfigRow, Diagnostics, Disk, GpuInfo, GuestLogs, WindowsReport, LogLine, Sensor, NotifyInfo, NotifySettings, GuestStatusDetail, NetIface, NodeInfo, PveTask, RrdPoint, Service, Snapshot, Storage, Timeframe, QemuDevices, BackupList,
+  LokiStatus, LokiLine, LokiHistogram, LogAnalytics, AiInfo, ConfigRow, Diagnostics, Disk, GpuInfo, GuestLogs, WindowsReport, LogLine, Sensor, NotifyInfo, NotifySettings, GuestStatusDetail, NetIface, NodeInfo, PveTask, RrdPoint, Service, Snapshot, Storage, Timeframe, QemuDevices, BackupList,
 } from './types';
 
 export class ApiError extends Error {
@@ -103,6 +103,7 @@ export const api = {
   events: (p: { level?: string; source?: string; q?: string }) => get<SystemEvent[]>('/logs/events' + qs({ ...p, limit: '300' })),
   journal: (p: { priority?: string; unit?: string; since?: string; boot?: string; q?: string; kernel?: string }) =>
     get<JournalLine[]>('/logs/journal' + qs({ ...p, limit: '300' })),
+  lokiAnalytics: (since: string) => get<LogAnalytics>('/loki/analytics' + qs({ since })),
   lokiStatus: () => get<LokiStatus>('/loki/status'),
   lokiLabelValues: (name: string) => get<string[]>(`/loki/labels/${encodeURIComponent(name)}/values`),
   lokiQuery: (query: string, since: string) => get<LokiLine[]>('/loki/query' + qs({ query, since, limit: '500' })),

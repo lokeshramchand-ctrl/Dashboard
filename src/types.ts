@@ -180,3 +180,19 @@ export interface QemuDevices {
 }
 export interface Backup { volid: string; storage: string; size: number; time: number; format: string; notes: string; protected: boolean }
 export interface BackupList { storages: string[]; backups: Backup[] }
+
+export interface LogAnalytics {
+  since: string; stepSeconds: number;
+  logs: {
+    total: number; errors: number; warnings: number; hosts: number;
+    series: { t: string; error: number; warning: number; other: number }[];
+    topHosts: { host: string; lines: number; errors: number }[];
+    topUnits: { unit: string; host: string; errors: number }[];
+  };
+  web: {
+    requests: number; serverErrors: number; clientErrors: number; errorRate: number;
+    series: { t: string; ok: number; redirect: number; client: number; server: number; other: number }[];
+    topVhosts: { vhost: string; requests: number; errors5xx: number; p95: number | null }[];
+  };
+  health: { silent: string[] };
+}

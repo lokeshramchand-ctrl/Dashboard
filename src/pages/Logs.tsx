@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import LogAnalyticsView from './LogAnalytics';
 import { api } from '../api';
 import { Async, Badge, Card, CardHead, Chips, PageHeader } from '../components/ui';
 import type { Tone } from '../components/ui';
 import { useQuery, useSearch } from '../hooks';
 import type { BootInfo, EventLevel, LokiLine } from '../types';
 
-type Tab = 'events' | 'journal' | 'loki' | 'boots';
+type Tab = 'analytics' | 'events' | 'journal' | 'loki' | 'boots';
 const LEVEL: Record<EventLevel, Tone> = { info: 'blue', warn: 'amber', error: 'red' };
 const PRIO = ['emerg', 'alert', 'crit', 'err', 'warning', 'notice', 'info', 'debug'];
 const PRIO_TONE: Tone[] = ['red', 'red', 'red', 'red', 'amber', 'blue', 'gray', 'gray'];
@@ -16,13 +17,16 @@ const dur = (a: string, b: string) => {
 };
 
 export default function Logs() {
-  const [tab, setTab] = useState<Tab>('events');
+  const [tab, setTab] = useState<Tab>('analytics');
+  const [seed, setSeed] = useState<{ query: string; since: string } | null>(null);
+  const explore = (query: string, since: string) => { setSeed({ query, since }); setTab('loki'); };
   const summary = useQuery(api.logSummary, [], 30000);
   return (
     <>
-      <PageHeader title="Logs" sub="Dashboard events and the host journal: use it to see why something went offline." />
+      <PageHeader title="Logs" sub="Every guest and the host in one place: analytics, search and history, all read live from Loki." />
       <div className="toolbar">
         <Chips value={tab} onChange={setTab} options={[
+          { id: 'analytics', label: 'Analytics' },
           { id: 'events', label: 'Events', count: summary.data?.errors24h },
           { id: 'journal', label: 'Host journal' },
           { id: 'loki', label: 'Loki' },
@@ -30,9 +34,10 @@ export default function Logs() {
         ]} />
         {summary.data && summary.data.errors24h > 0 && <Badge tone="red" dot>{summary.data.errors24h} errors in 24 h</Badge>}
       </div>
+      {tab === 'analytics' && <LogAnalyticsView onExplore={explore} />}
       {tab === 'events' && <Events />}
       {tab === 'journal' && <Journal />}
-      {tab === 'loki' && <Loki />}
+      {tab === 'loki' && <Loki seed={seed} />}
       {tab === 'boots' && <Boots />}
     </>
   );
@@ -135,17 +140,25 @@ function Boots() {
 }
 
 const RANGES = ['15m', '1h', '6h', '24h', '7d'];
+const PRESETS: [string, string][] = [
+  ['All errors', '{job=~".+", level=~"error|err|crit|alert|emerg|fatal"}'],
+  ['Web 5xx', '{job="nginx-access", status=~"5.."}'],
+  ['Slow requests', '{job="nginx-access"} | rt > 1'],
+  ['Login failures', '{job="systemd-journal"} |~ "(?i)(failed password|authentication fail|invalid user|login failed)"'],
+  ['OOM / kernel', '{job="systemd-journal"} |~ "(?i)(out of memory|oom-kill|segfault|call trace)"'],
+  ['Dashboard app', '{job="app", app="dashboard"}'],
+];
 const LVL = /\b(crit|fatal|panic|error|err|warn(?:ing)?)\b/i;
 const esc = (v: string) => v.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
 // Queries Loki live through the backend; nothing is copied or stored by the dashboard.
-function Loki() {
+function Loki({ seed }: { seed: { query: string; since: string } | null }) {
   const { q: search } = useSearch();
   const status = useQuery(api.lokiStatus, [], 0);
   const [label, setLabel] = useState('');
   const [value, setValue] = useState('');
-  const [raw, setRaw] = useState('');
-  const [since, setSince] = useState('1h');
+  const [raw, setRaw] = useState(seed?.query ?? '');
+  const [since, setSince] = useState(seed?.since ?? '1h');
   const [live, setLive] = useState(false);
   const labels = status.data?.labels ?? [];
   const values = useQuery(() => (label ? api.lokiLabelValues(label) : Promise.resolve([] as string[])), [label], 0);
@@ -172,6 +185,9 @@ function Loki() {
         </select>
         <Chips value={since} onChange={setSince} options={RANGES.map((r) => ({ id: r, label: r }))} />
         <Chips value={live ? 'live' : 'off'} onChange={(v) => setLive(v === 'live')} options={[{ id: 'off', label: 'Paused' }, { id: 'live', label: 'Live 5 s' }]} />
+      </div>
+      <div className="toolbar">
+        <div className="chips">{PRESETS.map(([l, qy]) => <button key={l} className={raw === qy ? 'on' : ''} onClick={() => setRaw(qy)}>{l}</button>)}</div>
       </div>
       <div className="toolbar">
         <input className="input mono" style={{ flex: 1 }} placeholder='Or write LogQL, e.g. {job="varlogs"} |= "error"' aria-label="LogQL query" value={raw} onChange={(e) => setRaw(e.target.value)} />
